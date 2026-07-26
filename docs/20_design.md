@@ -1,270 +1,306 @@
-# 設計書：AI連携型 ステップ形式SOPシステム
+# 基本・詳細設計書
 
-## 1. システムアーキテクチャ
+## 1. 設計方針
 
-### 1.1 全体構成
-- **フロントエンドのみ**: Vanilla HTML/CSS/JavaScript (npm非依存)
-- **通信**: ネットワーク条件によりSharePointとの連携
+### 1.1 全体方針
+- 既存のVanilla HTML/CSS/JavaScriptアーキテクチャを維持
+- フィードバックの影響範囲に限定した最小限の変更
+- 既存のレイアウト構成（2カラム）から、編集フォームは全画面または中央モーダル形式に変更
+- 既存テストコード・機能は一切変更しない
 
-### 1.2 ファイル構成
+### 1.2 修正対象のフィードバック
+1. **作業編集欄のレイアウト改善**: サイドバー形式から全画面またはモーダル形式に変更
+2. **開始ボタンの動作修正**: `navigateTo()` 未実装バグの修正
+
+---
+
+## 2. アーキテクチャ概要
+
+### 2.1 既存構成
 ```
-sop-management-tool/
-├── index.html
-├── css/
-│   └── styles.css
-├── js/
-│   ├── app.js
-│   ├── admin.js
-│   ├── player.js
-│   ├── excelExport.js
-│   └── utils.js
-└── docs/
+index.html
+├── app-header (ヘッダー)
+├── main-content (メインコンテンツ)
+│   ├── 選択画面 (A-01)
+│   ├── 管理者画面 (A-02)
+│   │   ├── ステップ一覧 (左カラム)
+│   │   └── 編集フォーム (step-form) ← 右サイドバー ← 【変更対象】
+│   └── 実施画面 (P-01, P-02)
+└── step-form (編集フォームのサイドバー) ← 【変更対象】
+└── modal-overlay (モーダル)
 ```
 
-### 1.3 ブラウザ要件
-- Microsoft Edge (最新版) のみ対応
+### 2.2 修正後構成
+```
+index.html
+├── app-header (ヘッダー)
+├── main-content (メインコンテンツ)
+│   ├── 選択画面 (A-01)
+│   ├── 管理者画面 (A-02)
+│   │   ├── ステップ一覧 (左カラム)
+│   │   └── 編集フォーム (中央モーダル/全画面オーバーレイ) ← 【変更後】
+│   └── 実施画面 (P-01, P-02)
+└── modal-overlay (モーダル)
+    └── step-form (編集フォームをモーダル内に移動) ← 【変更後】
+```
 
-## 2. 画面設計
+---
 
-### 2.1 画面一覧
-| 画面ID | 名称 | 目的 | 遷移元 | 遷移先 |
-|--------|------|------|--------|--------|
-| A-01 | SOP一覧 | 既存SOPの選択、新規作成、JSONインポート | 初期 | A-02, P-01 |
-| A-02 | 管理者編集 | ステップCRUD、設定編集、保存 | A-01 | A-01, A-03 |
-| A-03 | プレビュー | SOP全体プレビュー | A-02 | A-02 |
-| P-01 | 実施開始 | 作業者名入力、実施開始 | A-01 | P-02 |
-| P-02 | ステップ実施 | ウィザード形式の作業記録 | P-01 | P-02, P-03 |
-| P-03 | 完了・出力 | 実績Excel出力 | P-02 | A-01 |
+## 3. 詳細設計
 
-### 2.2 管理者画面 (A-02)
-- ヘッダー: SOPタイトル入力、新規SOPボタン、保存ボタン、プレビュー表示ボタン
-- メイン: ステップリスト（ドラッグ&ドロップ並び替え）、追加/削除ボタン
-- サイド: 選択ステップの編集フォーム
-  - 作業指示文テキストエリア（広めの編集エリア）
-  - 補足コメント入力欄
-  - 参考画像貼り付け（複数枚）
-    - クリップボードからのペーストのみ対応（ファイル選択なし）
-  - **設定は常時有効（変更不可）**:
-    - 画像プレースホルダー表示（常時ON）
-    - 時刻記録必須（常時ON）
-    - OK/NG判定必須（常時ON）
-    - スキップ許可（常時ON）
+### 3.1 作業編集欄のレイアウト変更
 
-### 2.3 実施画面 (P-01/P-02/P-03)
-- P-01（開始画面）
-  - SOPタイトル表示
-  - 作業者名入力欄
-  - 開始ボタン
+#### 3.1.1 HTML構造の変更
+**対象ファイル**: `index.html`
 
-- P-02（ステップ実施）
-  - ヘッダー: ステップ番号/全体数 (例: 3/10)
-  - メイン: 作業指示文、補足コメント、参考画像（複数枚表示）
-  - 入力エリア:
-    - 記録ボタン (時刻) - require_timeがONの場合表示
-    - OK/NGトグル - require_judgmentがONの場合表示
-    - スキップボタン - skip_enabledがONの場合表示
-    - 画像添付エリア（複数枚、ペーストのみ）- media_enabledがONの場合表示
-    - 作業コメント入力欄
-  - フッター: 次へボタン、スキップ理由入力エリア（スキップ押下時表示）
-  - 未入力時: 非ブロック型警告モーダル
+**変更内容**:
+- `step-form` div (25-48行目) を `modal-overlay` 内に移動
+- 編集フォームをモーダル形式で表示するよう変更
+- モーダル内に十分な横幅と高さを確保
 
-- P-03（完了画面）
-  - 完了メッセージ
-  - Excel出力ボタン
-  - 管理者一覧へ戻るボタン
+**変更前**:
+```html
+<!-- Step Form Sidebar (Admin) -->
+<div class="step-form" id="step-form">
+    <!-- フォーム内容 -->
+</div>
 
-### 2.4 選択画面 (A-01)
-- 新規SOP作成ボタン
-- JSONファイルから読み込みボタン（ファイル選択UI）
-- SOP一覧（タイトル、ステップ数、更新日、操作ボタン）
+<!-- Modals -->
+<div class="modal-overlay" id="modal-overlay" style="display:none;">
+    <div class="modal-content" id="modal-content"></div>
+</div>
+```
 
-### 2.5 モーダル
-- 警告モーダル (非ブロック): 未入力時の注意喚起
-- スキップ理由入力: スキップ時テキストエリア
-- JSON読み込みエラー: パースエラー表示
+**変更後**:
+```html
+<!-- Modals -->
+<div class="modal-overlay" id="modal-overlay" style="display:none;">
+    <div class="modal-content" id="modal-content">
+        <!-- Step Form (モーダル内に配置) -->
+        <div class="step-form" id="step-form">
+            <!-- フォーム内容 -->
+        </div>
+    </div>
+</div>
+```
 
-## 3. データ設計
+#### 3.1.2 CSSの変更
+**対象ファイル**: `css/styles.css` (新規作成または既存ファイルに追加)
 
-### 3.1 テンプレートデータモデル (JSON)
-```json
-{
-  "sop_id": "string (UUID)",
-  "sop_title": "string",
-  "created_at": "string (ISO8601)",
-  "updated_at": "string (ISO8601)",
-  "steps": [
-    {
-      "step_index": "integer (1始まり)",
-      "instruction": "string",
-      "comment": "string",
-      "media_enabled": "boolean",
-      "require_time": "boolean",
-      "require_judgment": "boolean",
-      "skip_enabled": "boolean",
-      "images": ["base64_data_url"]
-    }
-  ]
+**必要なスタイル**:
+- `.step-form` をモーダル内で全幅表示
+- textarea の高さを十分に確保（rows 10→20 に増加、またはCSSで高さ指定）
+- 編集エリアの横幅を制限しないレイアウト
+
+```css
+.step-form {
+    width: 100%;
+    max-width: 900px;
+    padding: 32px;
+}
+
+.step-form .form-group textarea {
+    width: 100%;
+    min-height: 200px;
+    font-size: 12pt;
+}
+
+#modal-content.step-form-modal {
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 ```
 
-### 3.2 実行時データモデル (実績)
-```json
-{
-  "sop_id": "string",
-  "sop_title": "string",
-  "operator_name": "string",
-  "execution_date": "string (YYYYMMDD)",
-  "started_at": "string (ISO8601)",
-  "completed_at": "string (ISO8601)",
-  "steps": [
-    {
-      "step_index": "integer",
-      "instruction": "string",
-      "comment": "string",
-      "time": "string (HH:mm:ss)",
-      "judgment": "OK|NG|未判定",
-      "skip": "boolean",
-      "skip_reason": "string",
-      "images": ["base64_data_url"],
-      "operator_comment": "string"
+#### 3.1.3 JavaScriptの変更
+**対象ファイル**: `js/admin.js`
+
+**変更内容**:
+- `openStepForm()`: モーダルを表示するよう変更
+- `closeStepForm()`: モーダルを非表示にするよう変更
+- モーダル制御ロジックを追加
+
+```javascript
+openStepForm: function(stepData) {
+    // フォームに値を設定
+    document.getElementById('step-instruction').value = stepData.instruction || '';
+    document.getElementById('step-comment').value = stepData.comment || '';
+    this.currentImages = stepData.images || [];
+    this.renderImageThumbnails();
+
+    // モーダルを表示
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalContent = document.getElementById('modal-content');
+    
+    // step-formをmodal-content内に移动（必要に応じて）
+    modalContent.classList.add('step-form-modal');
+    modalOverlay.style.display = 'flex';
+},
+
+closeStepForm: function() {
+    const form = document.getElementById('step-form');
+    if (form) {
+        form.classList.remove('open');
     }
-  ]
+    
+    // モーダルを非表示
+    const modalOverlay = document.getElementById('modal-overlay');
+    modalOverlay.style.display = 'none';
+    
+    this.currentStepIndex = null;
 }
 ```
 
-### 3.3 ローカルストレージ構造
-- `sop_templates`: テンプレート一覧（配列）
-- `current_execution`: 実行中データ（進捗復元用）
-- `currentSop`: 現在編集中のSOP（単一オブジェクト）
+### 3.2 開始ボタンの動作修正
 
-## 4. 技術選定と実装方針
+#### 3.2.1 問題の原因
+**対象ファイル**: `js/player.js`
 
-### 4.1 ライブラリ
-- **Excel生成**: SheetJS (xlsx) CDN版 (`https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js`)
-- **画像処理**: Canvas API (ネイティブ)
-- **アニメーション**: CSS Transitions (Vanilla)
-- **ID生成**: `crypto.randomUUID()` （Edge対応）
-
-### 4.2 状態管理
-- グローバル変数 (`window.app`) で一元管理
-- LocalStorage への自動保存（5秒ごと）
-- 複数SOPは配列で管理
-
-### 4.3 通信設計
-- フロントエンドのみ（SharePoint連携は将来拡張）
-- LocalStorage をプライマリストレージとして使用
-- エクスポート時はダウンロード（Blob）
-
-### 4.4 画像処理
-- **圧縮フロー**:
-  1. クリップボードからBlob取得
-  2. Imageオブジェクトでデコード
-  3. Canvasで最大幅1280pxにリサイズ (アスペクト比保持)
-  4. canvas.toBlob('image/jpeg', 0.8) で圧縮
-  5. Base64 Data URL文字列に変換
-- **配列管理**: 各ステップの `images` 配列に追加
-- **複数枚対応**: 配列にpushで追加、UIはサムネイル一覧表示
-
-## 5. アルゴリズム詳細
-
-### 5.1 Excel出力フロー
-1. XLSX.utils.book_new() で新規ブック
-2. ヘッダー行書き込み (No, 作業内容, 実施時刻, 判定, スキップ理由, コメント, 画像)
-3. 各ステップ行をループ
-4. 画像がある場合:
-   - 画像列を行結合（画像数分の行数）
-   - 各画像を個別の行に埋め込み（絶対パス参照禁止、Base64を埋め込み）
-   - セルサイズを画像に合わせて調整（width/height設定）
-5. フォント設定: 游ゴシック 11pt
-6. 罫線: 標準的な細実線
-7. XLSX.writeFile() でダウンロード
-
-### 5.2 ドラッグ&ドロップ並び替え
-1. dragstart: 対象行のdataTransferにstep_index設定
-2. dragover: preventDefault()でドロップ許可、移動場所をハイライト
-3. drop: 配列の要素を入れ替え、step_indexを再計算
-4. UI即時再描画
-5. LocalStorageに自動保存
-
-### 5.3 バグ修正ポイント
-- **編集時の複製問題**: 編集対象のstep_indexを特定し、配列内の同じインデックスの要素だけを更新
-- **新規SOP保存問題**: 保存ボタン押下時にLocalStorageに配列を保存し、UIをリフレッシュ
-- **プレビュー遷移**: SOP全体プレビューを表示（実施画面へ遷移しない）
-- **完了後遷移**: A-01（一覧画面）へ遷移
-
-## 6. エラー処理
-
-### 6.1 想定エラー
-| エラー | 検知方法 | 処理 |
-|--------|----------|------|
-| ネットワーク断 | navigator.onLine || fetch error | alert() で警告 |
-| JSONパースエラー | try-catch (JSON.parse) | エラー表示、読み込み中断 |
-| クリップボード画像取得不可 | catch (navigator.clipboard.read) | エラーメッセージ + 再ペーストを促す |
-| Excel生成失敗 | try-catch (XLSX.writeFile) | alert() で通知 |
-| LocalStorage満杯 | catch (QuotaExceededError) | 警告表示、不要な古いデータを削除提案 |
-
-### 6.2 未入力チェック
-- 各ステップ移動前に入力必須項目確認
-- 未入力の場合はモーダル表示 (ブロックしない)
-- ユーザーが「次へ」を選択すれば進行可能
-
-## 7. セキュリティ・制約
-
-- HTTPS必須 (clipboard API制約)
-- 画像はメモリ保持のみ（LocalStorageにはBase64文字列として保存）
-- 外部ライブラリはCDN経由 (xlsx)
-- 特殊な権限制御は実装しない（LocalStorageのみのため）
-
-## 8. パフォーマンス目標
-
-- 画面遷移 2秒以内
-- Excel生成 5秒以内 (30ステップ)
-- 画像ペースト→プレビュー 1秒以内
-- LocalStorage自動保存 5秒以内
-
-## 9. 画面遷移図
-
-```
-[A-01: SOP一覧] 
-    ↓ (新規作成 / 選択 / インポート)
-[A-02: 管理者編集]
-    ↓ (プレビュー)
-[A-03: プレビュー] → A-02
-    ↓ (実施開始)
-[P-01: 実施開始]
-    ↓ (開始ボタン)
-[P-02: ステップ実施] → (完了)
-[P-03: 完了・出力] → A-01
+**問題箇所**: 64行目
+```javascript
+this.navigateTo('player-step'); // 未定義メソッドの呼び出し
 ```
 
-## 10. 実装順序 (Phase 3)
+**原因**: `navigateTo()` メソッドが存在しないため、JavaScript実行エラーが発生
 
-1. js/utils.js (ユーティリティ、画像圧縮、LocalStorage管理)
-2. js/excelExport.js (Excel出力、複数画像埋め込み)
-3. js/app.js (ルーティング、状態管理、自動保存)
-4. js/admin.js (管理者画面、SOP管理、ステップCRUD、複数画像、コメント)
-5. js/player.js (実施画面、コメント表示、複数画像添付)
-6. index.html (画面構造)
-7. css/styles.css (レイアウト、モーダル、ドラッグ&ドロップ、プレビュー用スタイル)
-8. 統合テスト・バグ修正
-9. README更新
+#### 3.2.2 修正設計
+**修正方針**: `startExecution()` 内の不要な `navigateTo()` 呼び出しを削除し、直接 `renderStep()` を呼び出す
 
-## 11. 実装上の注意点
+**変更前**:
+```javascript
+startExecution: function(operatorName) {
+    this.previewMode = false;
+    this.operatorName = operatorName || '';
+    this.currentStepIndex = 0;
+    
+    // Initialize execution data
+    window.app.state.executionData = [];
+    window.app.state.currentSop.steps.forEach((step, index) => {
+        window.app.state.executionData[index] = {
+            time: '',
+            judgment: '未判定',
+            skip: false,
+            skip_reason: '',
+            image_base64: null
+        };
+    });
 
-### 11.1 フィードバック反映項目
-1. 参考画像はペーストのみ対応（ファイル選択なし）
-2. 各ステップ設定はUIに表示せず常時ON（時刻記録必須、OK/NG判定必須、スキップ許可）
-3. 作業指示文の編集エリアを広くする
-4. プレビューはSOP全体プレビューを表示（実施画面へ遷移しない）
-5. 編集保存時は対象ステップだけを更新（複製バグ修正）
-6. 新規SOP保存時にLocalStorageに保存
-7. 複数SOP管理（配列形式）
-8. 作業実施時コメント欄追加
-9. 完了後→A-01一覧画面へ遷移
-10. SOP一覧画面(選択画面)にJSONファイルからインポートするUIを追加
-11. 実施開始時に作業者名を入力するP-01画面を実装
+    this.navigateTo('player-step'); // 【削除対象】
+},
+```
 
-### 11.2 既存コードの修正方針
-- 既存ファイル（index.html, css/styles.css, js/*.js）を読み込み
-- バグ修正と機能追加を最小差分で適用
-- 後方互換性を維持（データ形式はマイグレーション考慮）
+**変更後**:
+```javascript
+startExecution: function(operatorName) {
+    this.previewMode = false;
+    this.operatorName = operatorName || '';
+    this.currentStepIndex = 0;
+    
+    // Initialize execution data
+    window.app.state.executionData = [];
+    window.app.state.currentSop.steps.forEach((step, index) => {
+        window.app.state.executionData[index] = {
+            time: '',
+            judgment: '未判定',
+            skip: false,
+            skip_reason: '',
+            image_base64: null
+        };
+    });
+
+    this.renderStep(); // 【追加】直接ステップ画面を表示
+},
+```
+
+### 3.3 画面遷移フロー（修正後）
+
+#### 3.3.1 管理者画面の操作フロー
+1. ステップ一覧から「編集」ボタンクリック
+2. `admin.editStep(index)` が呼ばれる
+3. `admin.openStepForm(stepData)` がモーダルを表示
+4. ユーザーがフォームに入力
+5. 「保存」ボタンクリック → `admin.saveStep()` が実行
+6. `admin.closeStepForm()` でモーダルを閉じる
+
+#### 3.3.2 作業者画面の操作フロー
+1. 作業者名を入力して「開始」ボタンクリック
+2. `Player.startExecution(operatorName)` が呼ばれる
+3. 実行データを初期化
+4. `Player.renderStep()` でステップ1を表示 ← 【修正点】
+5. 各ステップで作業を実施
+6. 「次へ」ボタンで次のステップへ
+7. 全ステップ完了後、完了画面を表示
+
+---
+
+## 4. 非機能要件の充足
+
+### 4.1 パフォーマンス
+- モーダル表示はDOM要素の移動のみで、パフォーマンス影響なし
+- `navigateTo()` 削除により、関数呼び出しコストが削減
+
+### 4.2 ブラウザ互換性
+- モーダル表示は基本的なDOM操作であり、Edgeで問題なく動作
+
+### 4.3 保守性
+- 不要な `navigateTo()` メソッドを削除することで、コードの明確性が向上
+- モーダル形式により、編集エリアのレスポンシブ対応が容易
+
+---
+
+## 5. 変更ファイル一覧
+
+### 5.1 HTMLファイル
+- `index.html`: step-formをmodal-overlay内に移動
+
+### 5.2 CSSファイル
+- `css/styles.css`:
+  - `.step-form` のスタイル変更
+  - モーダル内フォーム用のスタイル追加
+
+### 5.3 JavaScriptファイル
+- `js/admin.js`:
+  - `openStepForm()` のモーダル表示ロジック変更
+  - `closeStepForm()` のモーダル非表示ロジック変更
+- `js/player.js`:
+  - `startExecution()` から `this.navigateTo()` を削除
+  - `this.renderStep()` を追加
+
+---
+
+## 6. テスト観点
+
+### 6.1 正常系
+- [ ] ステップ編集ボタンクリックでモーダルが開く
+- [ ] モーダル内で作業指示内容が入力できる
+- [ ] モーダルが全画面または中央に表示され、横幅が制限されていない
+- [ ] 「保存」ボタンでモーダルが閉じ、一覧が更新される
+- [ ] 「キャンセル」ボタンでモーダルが閉じ、変更が破棄される
+- [ ] 作業者名入力後、「開始」ボタンでステップ1画面に遷移する
+- [ ] 遷移後、通常通りステップ進行が動作する
+
+### 6.2 異常系
+- [ ] モーダル外クリックでモーダルが閉じる（オプション）
+- [ ] Escapeキーでモーダルが閉じる（既存機能）
+- [ ] 開始ボタンクリック時にJavaScriptエラーが発生しない
+
+### 6.3 回帰テスト
+- [ ] SOP一覧画面が正常に表示される
+- [ ] 新規SOP作成が正常に動作する
+- [ ] SOP保存が正常に動作する
+- [ ] プレビュー機能が正常に動作する
+- [ ] ステップのドラッグ＆ドロップ並び替えが正常に動作する
+- [ ] 画像ペーストが正常に動作する
+- [ ] Excel出力が正常に動作する
+
+---
+
+## 7. リスクと対策
+
+### 7.1 リスク
+- モーダル表示により、ユーザーが迷う可能性
+- 既存のステップ一覧と編集フォームの連携が崩れる可能性
+
+### 7.2 対策
+- モーダルは明確な「保存」「キャンセル」ボタンを表示
+- 既存の `currentStepIndex` 管理ロジックは変更しない

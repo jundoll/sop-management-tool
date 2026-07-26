@@ -154,6 +154,7 @@ const Admin = {
     // Add new step
     addStep: function() {
         this.currentStepIndex = null;
+        this.currentImages = [];
         this.openStepForm({
             instruction: '',
             comment: '',
@@ -186,11 +187,8 @@ const Admin = {
         }
     },
 
-    // Open step form
+    // Open step form (modal)
     openStepForm: function(stepData) {
-        const form = document.getElementById('step-form');
-        if (!form) return;
-
         document.getElementById('step-instruction').value = stepData.instruction || '';
         document.getElementById('step-comment').value = stepData.comment || '';
         
@@ -198,15 +196,16 @@ const Admin = {
         this.currentImages = stepData.images || [];
         this.renderImageThumbnails();
 
-        form.classList.add('open');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        modalContent.classList.add('step-form-modal');
+        modalOverlay.style.display = 'flex';
     },
 
-    // Close step form
+    // Close step form (modal)
     closeStepForm: function() {
-        const form = document.getElementById('step-form');
-        if (form) {
-            form.classList.remove('open');
-        }
+        const modalOverlay = document.getElementById('modal-overlay');
+        modalOverlay.style.display = 'none';
         this.currentStepIndex = null;
     },
 

@@ -113,6 +113,7 @@ const app = {
                                     <div class="sop-card-actions">
                                         <button class="secondary" onclick="app.editSop('${sop.sop_id}')">編集</button>
                                         <button onclick="app.executeSop('${sop.sop_id}')">実施</button>
+                                        <button class="secondary" onclick="app.exportSop('${sop.sop_id}')">エクスポート</button>
                                         <button class="danger" onclick="app.deleteSop('${sop.sop_id}')">削除</button>
                                     </div>
                                 </div>
@@ -187,10 +188,10 @@ const app = {
                 <!-- Left: Steps List -->
                 <div class="card" style="flex: 1;">
                     <div class="card-header">
-                        <span id="sop-title-display">${this.escapeHtml(sop.sop_title)}</span>
+                        <input type="text" id="sop-title" value="${this.escapeHtml(sop.sop_title)}" placeholder="SOPタイトルを入力" style="width: 100%; font-size: 12pt; padding: 8px;">
                     </div>
                     
-                    <button id="add-step-btn" style="width: 100%; margin-bottom: 16px;">+ ステップ追加</button>
+                    <button id="add-step-btn" style="width: 100%; margin-bottom: 16px; margin-top: 16px;">+ ステップ追加</button>
                     
                     <ul class="steps-list" id="steps-list">
                         <!-- Steps will be rendered here -->
@@ -207,6 +208,10 @@ const app = {
     createNewSop: function() {
         this.state.currentSop = Utils.createEmptySop();
         this.saveCurrentSop();
+        // Also add to templates list immediately
+        let templates = this.getSopTemplates();
+        templates.push(Utils.deepClone(this.state.currentSop));
+        localStorage.setItem('sop_templates', JSON.stringify(templates));
         this.showAdminView();
     },
 
@@ -255,6 +260,27 @@ const app = {
         } catch (e) {
             alert('削除に失敗しました: ' + e.message);
         }
+    },
+
+    // Export SOP template as JSON
+    exportSop: function(sopId) {
+        const templates = this.getSopTemplates();
+        const sop = templates.find(t => t.sop_id === sopId);
+        if (!sop) {
+            alert('エクスポートするSOPが見つかりませんでした。');
+            return;
+        }
+
+        const jsonStr = JSON.stringify(sop, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sop_${sop.sop_title || 'template'}_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     },
 
     // Handle file upload

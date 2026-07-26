@@ -180,23 +180,24 @@ textarea {
     font-size: 10pt;
 }
 
-/* Step Form (Admin) */
+/* Step Form (Admin) - Modal Style */
 .step-form {
-    position: fixed;
-    right: -420px;
-    top: 0;
-    width: 420px;
-    height: 100%;
+    width: 100%;
+    max-width: 900px;
+    padding: 32px;
     background: white;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
-    padding: 24px;
-    overflow-y: auto;
-    transition: right 0.3s ease;
-    z-index: 100;
+    border-radius: 8px;
 }
 
-.step-form.open {
-    right: 0;
+.step-form .form-group textarea {
+    min-height: 200px;
+    font-size: 12pt;
+}
+
+#modal-content.step-form-modal {
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .form-group {

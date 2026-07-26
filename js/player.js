@@ -61,7 +61,7 @@ const Player = {
             };
         });
 
-        this.navigateTo('player-step');
+        this.renderStep();
     },
 
     // Render whole SOP preview

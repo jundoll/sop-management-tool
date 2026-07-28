@@ -9,13 +9,17 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-    <div id="app">
-        <!-- Header -->
-        <header class="app-header" id="app-header" style="display:none;">
-            <h1 id="page-title">SOP管理システム</h1>
-            <div class="header-actions" id="header-actions"></div>
-        </header>
+    <!-- Main Navigation Menu (全ページ共通) -->
+    <nav id="main-menu">
+        <button class="menu-brand">SOP管理システム</button>
+        <div class="menu-links">
+            <button class="menu-item" data-view="selection">TOP</button>
+            <button class="menu-item" data-view="admin">SOP作成</button>
+            <button class="menu-item" data-view="player">実施画面</button>
+        </div>
+    </nav>
 
+    <div id="app">
         <!-- Main Content -->
         <main class="main-content" id="main-content">
             <!-- Views will be rendered here -->
@@ -51,6 +55,17 @@
                 </div>
             </div>
         </div>
+
+        <!-- Inline edit template -->
+        <template id="inline-edit-template">
+            <div class="inline-edit-area">
+                <textarea placeholder="作業指示内容を入力"></textarea>
+                <div class="inline-edit-actions">
+                    <button class="inline-save-btn">保存</button>
+                    <button class="secondary inline-cancel-btn">キャンセル</button>
+                </div>
+            </div>
+        </template>
     </div>
 
     <!-- Scripts -->

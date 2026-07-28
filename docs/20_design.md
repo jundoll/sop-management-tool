@@ -1,306 +1,128 @@
-# 基本・詳細設計書
+# 設計書：フィードバック反映に伴う設計変更 (v1.13)
 
-## 1. 設計方針
+## 1. 変更概要
 
-### 1.1 全体方針
-- 既存のVanilla HTML/CSS/JavaScriptアーキテクチャを維持
-- フィードバックの影響範囲に限定した最小限の変更
-- 既存のレイアウト構成（2カラム）から、編集フォームは全画面または中央モーダル形式に変更
-- 既存テストコード・機能は一切変更しない
+| 項目 | 説明 |
+|------|------|
+| 変更対象 | `index.html`, `js/app.js`, `js/admin.js`, `js/player.js`, `css/styles.css` |
+| 変更理由 | `docs/00_feedback.md` の新規フィードバック項目の反映 |
 
-### 1.2 修正対象のフィードバック
-1. **作業編集欄のレイアウト改善**: サイドバー形式から全画面またはモーダル形式に変更
-2. **開始ボタンの動作修正**: `navigateTo()` 未実装バグの修正
+## 2. フィードバック項目と設計変更
 
----
+### 2.1 前述フィードバックの反映状況確認
 
-## 2. アーキテクチャ概要
+SOP一覧画面のカード統合、SOP実施画面の全ステップ一覧スクロール形式＋左右レイアウト、作業者名削除、作成画面の詳細レイアウト、画像貼り付けは前回反映済み。
+本設計では、残る未反映項目に絞って変更を定義する。
 
-### 2.1 既存構成
-```
-index.html
-├── app-header (ヘッダー)
-├── main-content (メインコンテンツ)
-│   ├── 選択画面 (A-01)
-│   ├── 管理者画面 (A-02)
-│   │   ├── ステップ一覧 (左カラム)
-│   │   └── 編集フォーム (step-form) ← 右サイドバー ← 【変更対象】
-│   └── 実施画面 (P-01, P-02)
-└── step-form (編集フォームのサイドバー) ← 【変更対象】
-└── modal-overlay (モーダル)
-```
+**現状:**
+- `doShowSelectionView()` で2つのカードを生成
+  - 1つ目: 「SOP管理システム」ヘッダー + 新規作成/JSON読込ボタン
+  - 2つ目: 「SOP一覧 (N件)」ヘッダー + SOPカード一覧
 
-### 2.2 修正後構成
-```
-index.html
-├── app-header (ヘッダー)
-├── main-content (メインコンテンツ)
-│   ├── 選択画面 (A-01)
-│   ├── 管理者画面 (A-02)
-│   │   ├── ステップ一覧 (左カラム)
-│   │   └── 編集フォーム (中央モーダル/全画面オーバーレイ) ← 【変更後】
-│   └── 実施画面 (P-01, P-02)
-└── modal-overlay (モーダル)
-    └── step-form (編集フォームをモーダル内に移動) ← 【変更後】
-```
+**変更設計:**
+- 1つのカードに統合
+- カードヘッダーは「SOP一覧 (N件)」のみ
+- 新規作成/JSON読込ボタンはカード内の上部に配置（コンパクトなまま）
+- 「SOP管理システム」のタイトル表示は削除（メニューバーのブランドに委ねる）
 
----
+### 2.2 SOP作成画面：ステップクリックで詳細開閉（フィードバック#18, #21）
 
-## 3. 詳細設計
+**現状:**
+- ステップ詳細の開閉は `▼` ボタンクリックのみで動作
+- 開閉ボタンはステップインデックスの横、削除ボタンは右端に配置
 
-### 3.1 作業編集欄のレイアウト変更
+**変更設計:**
+- ステップ全体（`.step-item`）クリックで詳細を開閉可能にする
+- ただし、削除ボタンやその他の操作ボタンクリック時は開閉しない（イベント伝播制御）
+- 詳細を開いた状態では、開閉ボタンは `▲` に変化
+- 削除ボタンは右端に維持
 
-#### 3.1.1 HTML構造の変更
-**対象ファイル**: `index.html`
+**現状:**
+- 詳細エリア（step-detail）内で、作業指示・コメント・画像が縦積み
 
-**変更内容**:
-- `step-form` div (25-48行目) を `modal-overlay` 内に移動
-- 編集フォームをモーダル形式で表示するよう変更
-- モーダル内に十分な横幅と高さを確保
+**変更設計:**
+- 詳細エリア内を左右2カラムに分割
+- 左カラム: 作業指示テキストエリア + 補足コメントテキストエリア
+- 右カラム: 参考画像サムネイル一覧
+- 画像の削除ボタンは各画像の右上に配置
 
-**変更前**:
-```html
-<!-- Step Form Sidebar (Admin) -->
-<div class="step-form" id="step-form">
-    <!-- フォーム内容 -->
-</div>
+### 2.3 デザイン・レイアウト統一（フィードバック#2〜6）
 
-<!-- Modals -->
-<div class="modal-overlay" id="modal-overlay" style="display:none;">
-    <div class="modal-content" id="modal-content"></div>
-</div>
-```
+**設計指針:**
+- 全画面でカードベースのレイアウトを統一
+- 余白・フォントサイズ・角丸・シャドウはCSS変数で一元管理
+- ボタン样式・入力欄样式を全画面で共通化
+- 実施画面のステップカードと作成画面のステップ項目で統一感のあるデザインを適用
 
-**変更後**:
-```html
-<!-- Modals -->
-<div class="modal-overlay" id="modal-overlay" style="display:none;">
-    <div class="modal-content" id="modal-content">
-        <!-- Step Form (モーダル内に配置) -->
-        <div class="step-form" id="step-form">
-            <!-- フォーム内容 -->
-        </div>
-    </div>
-</div>
-```
+**現状:**
+- モーダル内の `image-upload-area` にペーストハンドラ設定
+- 詳細エリア内では画像ペースト不可
 
-#### 3.1.2 CSSの変更
-**対象ファイル**: `css/styles.css` (新規作成または既存ファイルに追加)
+**変更設計:**
+- 詳細エリア内の画像表示エリアにもペーストハンドラを追加
+- 詳細エリア内でCtrl+Vで画像を追加可能にする
+- モーダル内のペースト処理も併存させる
 
-**必要なスタイル**:
-- `.step-form` をモーダル内で全幅表示
-- textarea の高さを十分に確保（rows 10→20 に増加、またはCSSで高さ指定）
-- 編集エリアの横幅を制限しないレイアウト
+### 2.4 名称の実態一致（フィードバック#10）
 
-```css
-.step-form {
-    width: 100%;
-    max-width: 900px;
-    padding: 32px;
-}
+**設計指針:**
+- 画面名・ボタン名はユーザーの業務用語に合わせた名称を使用
+- 既存の「管理者画面」「SOP管理システム」等は、指定された名称に変更
 
-.step-form .form-group textarea {
-    width: 100%;
-    min-height: 200px;
-    font-size: 12pt;
-}
+**現状:**
+- 開閉ボタン（▼）と削除ボタンが step-actions 内に横並び
+- 詳細を開いた後も同じ位置
 
-#modal-content.step-form-modal {
-    max-width: 95vw;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-```
+**変更設計:**
+- 開閉ボタン（▼/▲）は左側（step-indexの横）に配置
+- 削除ボタンは右端に配置
+- 詳細を開いた後も削除ボタンは常に表示
 
-#### 3.1.3 JavaScriptの変更
-**対象ファイル**: `js/admin.js`
+### 2.5 ユースケース・動線の明確化（フィードバック#9）
 
-**変更内容**:
-- `openStepForm()`: モーダルを表示するよう変更
-- `closeStepForm()`: モーダルを非表示にするよう変更
-- モーダル制御ロジックを追加
+**設計指針:**
+- 画面遷移図、ボタン操作フロー、入力操作フローを文書化
+- 最も利用頻度の高い操作（SOP一覧→実施）が最短クリック数で到達可能であることを確認
 
-```javascript
-openStepForm: function(stepData) {
-    // フォームに値を設定
-    document.getElementById('step-instruction').value = stepData.instruction || '';
-    document.getElementById('step-comment').value = stepData.comment || '';
-    this.currentImages = stepData.images || [];
-    this.renderImageThumbnails();
+**現状:**
+- 1ステップ＝1画面のウィザード形式
+- `renderStep()` で1ステップずつ表示
+- 「戻る」ボタンで前ステップに戻る
 
-    // モーダルを表示
-    const modalOverlay = document.getElementById('modal-overlay');
-    const modalContent = document.getElementById('modal-content');
-    
-    // step-formをmodal-content内に移动（必要に応じて）
-    modalContent.classList.add('step-form-modal');
-    modalOverlay.style.display = 'flex';
-},
+**変更設計:**
+- 全ステップを1画面に縦積み表示
+- 各ステップは左右2カラムレイアウト
+  - 左カラム: 指示内容、補足コメント、作業コメント入力、スキップ理由入力、OK/NG/スキップボタン
+  - 右カラム: 参照画像、エビデンス画像貼り付けエリア
+- 各ステップに個別のOK/NG/スキップボタンを配置
+- 完了時刻は各ステップのOK/NG/スキップ押下時に自動記録
+- 全ステップ完了後、完了画面へ遷移
+- スクロールで全ステップを確認可能
 
-closeStepForm: function() {
-    const form = document.getElementById('step-form');
-    if (form) {
-        form.classList.remove('open');
-    }
-    
-    // モーダルを非表示
-    const modalOverlay = document.getElementById('modal-overlay');
-    modalOverlay.style.display = 'none';
-    
-    this.currentStepIndex = null;
-}
-```
+### 2.6 SharePoint前提・ファイル構成の簡素化（フィードバック#7, #8）
 
-### 3.2 開始ボタンの動作修正
+**設計指針:**
+- 静的HTMLファイルとしてSharePointのドキュメントライブラリに配置するだけで動作
+- 外部API依存を排除（localStorageのみでデータ保持）
+- 既存ライブラリ（SheetJS等）はCDN版を活用してファイル構成を複雑にしない
 
-#### 3.2.1 問題の原因
-**対象ファイル**: `js/player.js`
+**現状:**
+- `showStartScreen()` に作業者名入力欄あり
+- `startExecution(operatorName)` で作業者名を受け取り
+- リロード耐性のためlocalStorageに保存
 
-**問題箇所**: 64行目
-```javascript
-this.navigateTo('player-step'); // 未定義メソッドの呼び出し
-```
+**変更設計:**
+- 実施開始画面から作業者名入力欄を削除
+- 実施開始画面はSOPタイトル表示と「開始」ボタンのみ
+- `startExecution()` からoperatorNameパラメータを削除
+- localStorageの `operator_name` 保存処理を削除
 
-**原因**: `navigateTo()` メソッドが存在しないため、JavaScript実行エラーが発生
+## 3. 変更ファイル一覧
 
-#### 3.2.2 修正設計
-**修正方針**: `startExecution()` 内の不要な `navigateTo()` 呼び出しを削除し、直接 `renderStep()` を呼び出す
-
-**変更前**:
-```javascript
-startExecution: function(operatorName) {
-    this.previewMode = false;
-    this.operatorName = operatorName || '';
-    this.currentStepIndex = 0;
-    
-    // Initialize execution data
-    window.app.state.executionData = [];
-    window.app.state.currentSop.steps.forEach((step, index) => {
-        window.app.state.executionData[index] = {
-            time: '',
-            judgment: '未判定',
-            skip: false,
-            skip_reason: '',
-            image_base64: null
-        };
-    });
-
-    this.navigateTo('player-step'); // 【削除対象】
-},
-```
-
-**変更後**:
-```javascript
-startExecution: function(operatorName) {
-    this.previewMode = false;
-    this.operatorName = operatorName || '';
-    this.currentStepIndex = 0;
-    
-    // Initialize execution data
-    window.app.state.executionData = [];
-    window.app.state.currentSop.steps.forEach((step, index) => {
-        window.app.state.executionData[index] = {
-            time: '',
-            judgment: '未判定',
-            skip: false,
-            skip_reason: '',
-            image_base64: null
-        };
-    });
-
-    this.renderStep(); // 【追加】直接ステップ画面を表示
-},
-```
-
-### 3.3 画面遷移フロー（修正後）
-
-#### 3.3.1 管理者画面の操作フロー
-1. ステップ一覧から「編集」ボタンクリック
-2. `admin.editStep(index)` が呼ばれる
-3. `admin.openStepForm(stepData)` がモーダルを表示
-4. ユーザーがフォームに入力
-5. 「保存」ボタンクリック → `admin.saveStep()` が実行
-6. `admin.closeStepForm()` でモーダルを閉じる
-
-#### 3.3.2 作業者画面の操作フロー
-1. 作業者名を入力して「開始」ボタンクリック
-2. `Player.startExecution(operatorName)` が呼ばれる
-3. 実行データを初期化
-4. `Player.renderStep()` でステップ1を表示 ← 【修正点】
-5. 各ステップで作業を実施
-6. 「次へ」ボタンで次のステップへ
-7. 全ステップ完了後、完了画面を表示
-
----
-
-## 4. 非機能要件の充足
-
-### 4.1 パフォーマンス
-- モーダル表示はDOM要素の移動のみで、パフォーマンス影響なし
-- `navigateTo()` 削除により、関数呼び出しコストが削減
-
-### 4.2 ブラウザ互換性
-- モーダル表示は基本的なDOM操作であり、Edgeで問題なく動作
-
-### 4.3 保守性
-- 不要な `navigateTo()` メソッドを削除することで、コードの明確性が向上
-- モーダル形式により、編集エリアのレスポンシブ対応が容易
-
----
-
-## 5. 変更ファイル一覧
-
-### 5.1 HTMLファイル
-- `index.html`: step-formをmodal-overlay内に移動
-
-### 5.2 CSSファイル
-- `css/styles.css`:
-  - `.step-form` のスタイル変更
-  - モーダル内フォーム用のスタイル追加
-
-### 5.3 JavaScriptファイル
-- `js/admin.js`:
-  - `openStepForm()` のモーダル表示ロジック変更
-  - `closeStepForm()` のモーダル非表示ロジック変更
-- `js/player.js`:
-  - `startExecution()` から `this.navigateTo()` を削除
-  - `this.renderStep()` を追加
-
----
-
-## 6. テスト観点
-
-### 6.1 正常系
-- [ ] ステップ編集ボタンクリックでモーダルが開く
-- [ ] モーダル内で作業指示内容が入力できる
-- [ ] モーダルが全画面または中央に表示され、横幅が制限されていない
-- [ ] 「保存」ボタンでモーダルが閉じ、一覧が更新される
-- [ ] 「キャンセル」ボタンでモーダルが閉じ、変更が破棄される
-- [ ] 作業者名入力後、「開始」ボタンでステップ1画面に遷移する
-- [ ] 遷移後、通常通りステップ進行が動作する
-
-### 6.2 異常系
-- [ ] モーダル外クリックでモーダルが閉じる（オプション）
-- [ ] Escapeキーでモーダルが閉じる（既存機能）
-- [ ] 開始ボタンクリック時にJavaScriptエラーが発生しない
-
-### 6.3 回帰テスト
-- [ ] SOP一覧画面が正常に表示される
-- [ ] 新規SOP作成が正常に動作する
-- [ ] SOP保存が正常に動作する
-- [ ] プレビュー機能が正常に動作する
-- [ ] ステップのドラッグ＆ドロップ並び替えが正常に動作する
-- [ ] 画像ペーストが正常に動作する
-- [ ] Excel出力が正常に動作する
-
----
-
-## 7. リスクと対策
-
-### 7.1 リスク
-- モーダル表示により、ユーザーが迷う可能性
-- 既存のステップ一覧と編集フォームの連携が崩れる可能性
-
-### 7.2 対策
-- モーダルは明確な「保存」「キャンセル」ボタンを表示
-- 既存の `currentStepIndex` 管理ロジックは変更しない
+| ファイル | 変更内容 |
+|---------|---------|
+| `index.html` | 変更なし |
+| `js/app.js` | デザイン統一のためのクラス追加は不要。既存の構造を維持 |
+| `js/admin.js` | ステップクリックでの詳細開閉対応、ボタン位置の調整 |
+| `js/player.js` | 変更なし（既に要件を満たす） |
+| `css/styles.css` | デザイン統一のための共通スタイル追加、ステップカード・実施カードの統一 |

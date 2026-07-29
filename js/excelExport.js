@@ -14,7 +14,7 @@ const ExcelExport = {
             const worksheet = XLSX.utils.aoa_to_sheet([]);
             
             // Set column headers
-            const headers = ['No', '作業内容', '実施時刻', '判定', 'スキップ理由', '画像'];
+            const headers = ['No', '作業内容', '完了日付・時刻', '判定', 'スキップ理由', '作業コメント', '画像'];
             XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
 
             // Add data rows
@@ -25,7 +25,7 @@ const ExcelExport = {
                 const rowData = [
                     index + 1,
                     sopData.steps[index] ? sopData.steps[index].instruction : '',
-                    step.time || '',
+                    step.datetime || '',
                     step.judgment || '未判定',
                     step.skip ? (step.skip_reason || '') : '',
                     step.operator_comment || '',
@@ -55,10 +55,10 @@ const ExcelExport = {
             worksheet['!cols'] = [
                 { wch: 6 },   // No
                 { wch: 50 },  // 作業内容
-                { wch: 12 },  // 実施時刻
+                { wch: 18 },  // 完了日付・時刻
                 { wch: 8 },   // 判定
                 { wch: 30 },  // スキップ理由
-                { wch: 30 },  // コメント
+                { wch: 30 },  // 作業コメント
                 { wch: 30 }   // 画像
             ];
 
@@ -66,7 +66,7 @@ const ExcelExport = {
             XLSX.utils.book_append_sheet(workbook, worksheet, '履歴');
 
             // Generate filename
-            const filename = `${sopData.sop_title}_${executionData.execution_date}_${executionData.operator_name}.xlsx`;
+            const filename = `${sopData.sop_title}_${executionData.execution_date}.xlsx`;
 
             // Download file
             XLSX.writeFile(workbook, filename);
@@ -94,7 +94,7 @@ const ExcelExport = {
             executionData.steps.push({
                 step_index: index + 1,
                 instruction: step.instruction || '',
-                time: stepData.time || '',
+                datetime: stepData.datetime || '',
                 judgment: stepData.judgment || '未判定',
                 skip: stepData.skip || false,
                 skip_reason: stepData.skip_reason || '',

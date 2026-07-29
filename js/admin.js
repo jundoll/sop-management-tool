@@ -5,6 +5,14 @@ const Admin = {
     currentImages: [],
     _listenersAttached: false,
 
+    // Update save button disabled state based on changes
+    updateSaveButtonState: function(enable) {
+        const saveBtn = document.getElementById('save-sop-btn');
+        if (saveBtn) {
+            saveBtn.disabled = !enable;
+        }
+    },
+
     // Initialize admin view
     init: function() {
         this.currentStepIndex = null;
@@ -12,6 +20,8 @@ const Admin = {
         this._listenersAttached = false;
         this.renderStepsList();
         this.setupEventListeners();
+        // Initially disable save button until changes are made
+        this.updateSaveButtonState(false);
     },
 
     // Render steps list with expandable inline editing
@@ -36,11 +46,7 @@ const Admin = {
             li.innerHTML = `
                 <div class="step-item-left">
                     <span class="step-index">${index + 1}</span>
-                    <button class="step-toggle-btn" data-action="toggle-detail" data-index="${index}" title="詳細を表示">▼</button>
                     <span class="step-preview">${this.escapeHtml(step.instruction) || '（未入力）'}</span>
-                </div>
-                <div class="step-actions">
-                    <button class="danger" data-action="delete" data-index="${index}">削除</button>
                 </div>
                 <div class="step-detail" id="step-detail-${index}" style="display:none;width:100%;margin-top:8px;padding:12px;background:var(--gray-50);border-radius:var(--radius-sm);border:1px solid var(--gray-200);">
                     <div class="step-detail-two-column">
@@ -53,8 +59,17 @@ const Admin = {
                                 <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">補足コメント</label>
                                 <textarea class="detail-comment" data-index="${index}" rows="2" style="width:100%;font-size:11pt;padding:8px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);">${this.escapeHtml(step.comment || '')}</textarea>
                             </div>
-                            <div style="display:flex;gap:8px;margin-top:8px;">
+                            <div style="margin-bottom:8px;">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" class="detail-evidence-required" data-index="${index}" ${step.evidence_required ? 'checked' : ''}>
+                                    <label style="font-size:10pt;font-weight:600;color:var(--gray-500);margin-bottom:0;">エビデンスを取得する</label>
+                                </div>
+                                <input type="text" class="detail-evidence-description" data-index="${index}" value="${this.escapeHtml(step.evidence_description || '')}" placeholder="エビデンスの説明（例：画面キャプチャ、測定値など）" style="width:100%;font-size:10pt;padding:6px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);margin-top:4px;">
+                            </div>
+                            <div class="detail-actions" style="display:flex;gap:8px;margin-top:8px;">
                                 <button class="detail-save-btn" data-index="${index}" style="flex:1;">保存</button>
+                                <button class="secondary detail-cancel-btn" data-index="${index}" style="flex:1;">キャンセル</button>
+                                <button class="danger detail-delete-btn" data-index="${index}" style="flex:1;">削除</button>
                             </div>
                         </div>
                         <div class="step-detail-right">
@@ -65,7 +80,7 @@ const Admin = {
                                     ${step.images && step.images.length > 0 ? step.images.map((img, idx) => `
                                         <div style="position:relative;">
                                             <img src="${img}" class="image-thumbnail" alt="画像${idx + 1}" onclick="Admin.openImagePreview('${img}')">
-                                            <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;" onclick="Admin.removeDetailImage(${index}, ${idx})">×</button>
+                                            <button class="detail-image-delete-btn danger" data-step-index="${index}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">×</button>
                                         </div>
                                     `).join('') : ''}
                                 </div>
@@ -98,7 +113,6 @@ const Admin = {
 
         const addBtn = document.getElementById('add-step-btn');
         const saveBtn = document.getElementById('save-sop-btn');
-        const previewBtn = document.getElementById('preview-btn');
 
         if (addBtn) {
             addBtn.addEventListener('click', () => this.addStep());
@@ -108,11 +122,87 @@ const Admin = {
             saveBtn.addEventListener('click', () => this.saveSop());
         }
 
-        if (previewBtn) {
-            previewBtn.addEventListener('click', () => this.openPreview());
+        // Step list click events (delegation)
+        const stepsList = document.getElementById('steps-list');
+        if (stepsList) {
+            // Step item click to toggle detail
+            stepsList.addEventListener('click', (e) => {
+                const stepItem = e.target.closest('.step-item');
+                if (!stepItem) return;
+                
+                // Ignore clicks on buttons inside step-item
+                if (e.target.closest('button')) return;
+                
+                const index = parseInt(stepItem.dataset.index);
+                const detailEl = document.getElementById(`step-detail-${index}`);
+                if (detailEl) {
+                    const isHidden = detailEl.style.display === 'none';
+                    detailEl.style.display = isHidden ? 'block' : 'none';
+                }
+            });
+
+            // Left delete button in step-item (legacy, may be removed after CSS update)
+            stepsList.addEventListener('click', (e) => {
+                const target = e.target.closest('button[data-action="delete"]');
+                if (!target) return;
+                e.stopPropagation();
+                const index = parseInt(target.dataset.index);
+                this.deleteStep(index);
+            });
+
+            // Detail delete button
+            stepsList.addEventListener('click', (e) => {
+                const target = e.target.closest('.detail-delete-btn');
+                if (!target) return;
+                e.stopPropagation();
+                const index = parseInt(target.dataset.index);
+                this.deleteStep(index);
+            });
+
+            // Detail save button
+            stepsList.addEventListener('click', (e) => {
+                const target = e.target.closest('.detail-save-btn');
+                if (!target) return;
+                e.stopPropagation();
+                const index = parseInt(target.dataset.index);
+                this.saveDetailEdit(index);
+            });
+
+            // Detail cancel button - restore original values
+            stepsList.addEventListener('click', (e) => {
+                const target = e.target.closest('.detail-cancel-btn');
+                if (!target) return;
+                e.stopPropagation();
+                const index = parseInt(target.dataset.index);
+                this.restoreDetailEdit(index);
+            });
+
+            // Image delete buttons
+            stepsList.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.detail-image-delete-btn');
+                if (!deleteBtn) return;
+                e.stopPropagation();
+                const stepIndex = parseInt(deleteBtn.dataset.stepIndex);
+                const imgIndex = parseInt(deleteBtn.dataset.imgIndex);
+                this.removeDetailImage(stepIndex, imgIndex);
+            });
+
+            // Enable save button when detail inputs are modified
+            stepsList.addEventListener('input', (e) => {
+                const textarea = e.target.closest('.detail-instruction, .detail-comment, .detail-evidence-description');
+                if (!textarea) return;
+                this.updateSaveButtonState(true);
+            });
+            
+            // Enable save button when checkbox is changed
+            stepsList.addEventListener('change', (e) => {
+                const checkbox = e.target.closest('.detail-evidence-required');
+                if (!checkbox) return;
+                this.updateSaveButtonState(true);
+            });
         }
 
-        // Paste handler for reference images (modal)
+        // Paste handler for reference images (modal) - if elements exist
         const imageUploadArea = document.getElementById('image-upload-area');
         if (imageUploadArea) {
             Utils.handlePaste(imageUploadArea, 1280, 0.8, (base64) => {
@@ -120,85 +210,19 @@ const Admin = {
             });
         }
 
-        // Step list click events
-        const stepsList = document.getElementById('steps-list');
-        if (stepsList) {
-            stepsList.addEventListener('click', (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-
-                const action = target.dataset.action;
-                const index = parseInt(target.dataset.index);
-
-                if (action === 'toggle-detail') {
-                    const detailEl = document.getElementById(`step-detail-${index}`);
-                    if (detailEl) {
-                        const isHidden = detailEl.style.display === 'none';
-                        detailEl.style.display = isHidden ? 'block' : 'none';
-                        target.textContent = isHidden ? '▲' : '▼';
-                        target.title = isHidden ? '詳細を隠す' : '詳細を表示';
-                    }
-                } else if (action === 'delete') {
-                    this.deleteStep(index);
+        // Attach paste handlers for detail image upload areas after rendering
+        this._attachDetailPasteHandlers = () => {
+            const steps = window.app.state.currentSop.steps;
+            steps.forEach((step, index) => {
+                const uploadArea = document.getElementById(`detail-image-upload-${index}`);
+                if (uploadArea && !uploadArea.dataset.pasteAttached) {
+                    uploadArea.dataset.pasteAttached = 'true';
+                    Utils.handlePaste(uploadArea, 1280, 0.8, (base64) => {
+                        this.addDetailImage(index, base64);
+                    });
                 }
             });
-
-            // Detail save button
-            stepsList.addEventListener('click', (e) => {
-                const target = e.target.closest('.detail-save-btn');
-                if (!target) return;
-                const index = parseInt(target.dataset.index);
-                this.saveDetailEdit(index);
-            });
-
-            // Auto-save on blur for detail textareas
-            stepsList.addEventListener('blur', (e) => {
-                const textarea = e.target.closest('.detail-instruction, .detail-comment');
-                if (!textarea) return;
-                const index = parseInt(textarea.dataset.index);
-                // Don't re-render, just update the data model
-                const steps = window.app.state.currentSop.steps;
-                if (steps[index]) {
-                    const detailEl = document.getElementById(`step-detail-${index}`);
-                    if (detailEl) {
-                        const instTextarea = detailEl.querySelector('.detail-instruction');
-                        const commentTextarea = detailEl.querySelector('.detail-comment');
-                        if (instTextarea) {
-                            steps[index].instruction = instTextarea.value.trim() || steps[index].instruction;
-                        }
-                        if (commentTextarea) {
-                            steps[index].comment = commentTextarea.value.trim();
-                        }
-                        // Update preview text
-                        const stepItem = detailEl.closest('.step-item');
-                        if (stepItem) {
-                            const preview = stepItem.querySelector('.step-preview');
-                            if (preview) preview.textContent = steps[index].instruction || '（未入力）';
-                        }
-                    }
-                }
-            }, true);
-
-            // Inline edit: double-click on step preview
-            stepsList.addEventListener('dblclick', (e) => {
-                const stepItem = e.target.closest('.step-item');
-                if (!stepItem || stepItem.classList.contains('editing')) return;
-                const index = parseInt(stepItem.dataset.index);
-                this.startInlineEdit(index);
-            });
-        }
-
-        // Step form events
-        const form = document.getElementById('step-form');
-        if (form) {
-            form.addEventListener('click', (e) => {
-                if (e.target.id === 'cancel-step-btn') {
-                    this.closeStepForm();
-                } else if (e.target.id === 'save-step-btn') {
-                    this.saveStep();
-                }
-            });
-        }
+        };
     },
 
     // Start inline editing for a step
@@ -210,12 +234,13 @@ const Admin = {
         const step = window.app.state.currentSop.steps[index];
         if (!step) return;
 
-        // Close any other inline edit
-        const editing = stepsList.querySelector('.step-item.editing');
-        if (editing) {
-            this.cancelInlineEdit(parseInt(editing.dataset.index));
+        // Close any other open detail area first
+        const openDetail = stepsList.querySelector('.step-detail[style*="block"]');
+        if (openDetail) {
+            openDetail.style.display = 'none';
         }
 
+        // Ensure step-item editing state without hiding step-index
         stepItem.classList.add('editing');
         stepItem.draggable = false;
 
@@ -230,12 +255,10 @@ const Admin = {
         `;
         stepItem.appendChild(editArea);
 
-        // Focus the textarea
         const textarea = editArea.querySelector('textarea');
         textarea.focus();
         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
-        // Save on Ctrl+Enter
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
                 this.saveInlineEdit(index);
@@ -245,7 +268,6 @@ const Admin = {
             }
         });
 
-        // Button events
         editArea.querySelector('.inline-save-btn').addEventListener('click', () => {
             this.saveInlineEdit(index);
         });
@@ -348,19 +370,29 @@ const Admin = {
         this.renderStepsList();
     },
 
-    // Add new step - only adds ONE step per call
+    // Add new step - adds directly to list without modal
     addStep: function() {
-        this.currentStepIndex = null;
-        this.currentImages = [];
-        this.openStepForm({
+        // Create new empty step at the end
+        const newIndex = window.app.state.currentSop.steps.length;
+        const newStep = {
+            step_index: newIndex + 1,
             instruction: '',
             comment: '',
             images: [],
             media_enabled: true,
             require_time: true,
             require_judgment: true,
-            skip_enabled: true
-        });
+            skip_enabled: true,
+            evidence_required: false,
+            evidence_description: ''
+        };
+        window.app.state.currentSop.steps.push(newStep);
+        this.renderStepsList();
+        
+        // Automatically open detail for the new step and start inline editing
+        setTimeout(() => {
+            this.startInlineEdit(newIndex);
+        }, 50);
     },
 
     // Edit step
@@ -382,6 +414,12 @@ const Admin = {
             });
 
             this.renderStepsList();
+            
+            // Close detail area after deletion
+            const detailEl = document.getElementById(`step-detail-${index}`);
+            if (detailEl) {
+                detailEl.style.display = 'none';
+            }
         }
     },
 
@@ -411,6 +449,8 @@ const Admin = {
     saveStep: function() {
         const instruction = document.getElementById('step-instruction').value.trim();
         const comment = document.getElementById('step-comment').value.trim();
+        const evidenceRequired = document.getElementById('step-evidence-required').checked;
+        const evidenceDescription = document.getElementById('step-evidence-description').value.trim();
         
         if (!instruction) {
             alert('作業指示内容を入力してください。');
@@ -425,7 +465,9 @@ const Admin = {
             media_enabled: true,
             require_time: true,
             require_judgment: true,
-            skip_enabled: true
+            skip_enabled: true,
+            evidence_required: evidenceRequired,
+            evidence_description: evidenceDescription
         };
 
         if (this.currentStepIndex !== null) {
@@ -466,19 +508,13 @@ const Admin = {
             localStorage.setItem('sop_templates', JSON.stringify(templates));
             localStorage.setItem('currentSop', JSON.stringify(window.app.state.currentSop));
             alert('SOPを保存しました。');
+            // Disable save button after successful save
+            this.updateSaveButtonState(false);
         } catch (e) {
             alert('保存に失敗しました: ' + e.message);
         }
     },
 
-    // Open preview
-    openPreview: function() {
-        if (window.app.state.currentSop.steps.length === 0) {
-            alert('プレビューするステップがありません。');
-            return;
-        }
-        Player.startPreview();
-    },
 
     // Add image to current step (modal)
     addImage: function(base64) {
@@ -508,6 +544,9 @@ const Admin = {
                 </div>
             `).join('');
         }
+        
+        // Enable save button due to content change
+        this.updateSaveButtonState(true);
     },
 
     // Remove image from current step (modal)
@@ -558,6 +597,8 @@ const Admin = {
         
         const instTextarea = detailEl.querySelector('.detail-instruction');
         const commentTextarea = detailEl.querySelector('.detail-comment');
+        const evidenceRequiredCheckbox = detailEl.querySelector('.detail-evidence-required');
+        const evidenceDescriptionInput = detailEl.querySelector('.detail-evidence-description');
         
         if (instTextarea) {
             const val = instTextarea.value.trim();
@@ -568,6 +609,12 @@ const Admin = {
         if (commentTextarea) {
             steps[index].comment = commentTextarea.value.trim();
         }
+        if (evidenceRequiredCheckbox) {
+            steps[index].evidence_required = evidenceRequiredCheckbox.checked;
+        }
+        if (evidenceDescriptionInput) {
+            steps[index].evidence_description = evidenceDescriptionInput.value.trim();
+        }
         
         // Update preview text
         const stepItem = detailEl.closest('.step-item');
@@ -575,6 +622,40 @@ const Admin = {
             const preview = stepItem.querySelector('.step-preview');
             if (preview) preview.textContent = steps[index].instruction || '（未入力）';
         }
+        
+        // After saving, keep save enabled until global save
+        this.updateSaveButtonState(true);
+    },
+
+    // Restore detail edit (cancel button)
+    restoreDetailEdit: function(index) {
+        const detailEl = document.getElementById(`step-detail-${index}`);
+        if (!detailEl) return;
+        
+        const steps = window.app.state.currentSop.steps;
+        if (!steps[index]) return;
+        
+        const instTextarea = detailEl.querySelector('.detail-instruction');
+        const commentTextarea = detailEl.querySelector('.detail-comment');
+        const evidenceRequiredCheckbox = detailEl.querySelector('.detail-evidence-required');
+        const evidenceDescriptionInput = detailEl.querySelector('.detail-evidence-description');
+        
+        // Restore original values from data model
+        if (instTextarea) {
+            instTextarea.value = steps[index].instruction || '';
+        }
+        if (commentTextarea) {
+            commentTextarea.value = steps[index].comment || '';
+        }
+        if (evidenceRequiredCheckbox) {
+            evidenceRequiredCheckbox.checked = steps[index].evidence_required || false;
+        }
+        if (evidenceDescriptionInput) {
+            evidenceDescriptionInput.value = steps[index].evidence_description || '';
+        }
+        
+        // Hide detail area
+        detailEl.style.display = 'none';
     },
 
     // Remove image from detail view
@@ -594,10 +675,13 @@ const Admin = {
             container.innerHTML = images.map((img, idx) => `
                 <div style="position:relative;">
                     <img src="${img}" class="image-thumbnail" alt="画像${idx + 1}" onclick="Admin.openImagePreview('${img}')">
-                    <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;" onclick="Admin.removeDetailImage(${stepIndex}, ${idx})">×</button>
+                    <button class="detail-image-delete-btn danger" data-step-index="${stepIndex}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">×</button>
                 </div>
             `).join('');
         }
+        
+        // Enable save button due to content change
+        this.updateSaveButtonState(true);
     },
 
     // Escape HTML

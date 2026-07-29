@@ -28,9 +28,21 @@ const Utils = {
         return hours + ':' + minutes + ':' + seconds;
     },
 
-    // Get current timestamp string
+    // Format datetime to YYYY-MM-DD HH:mm:ss
+    formatDateTime: function(date) {
+        const d = date || new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const seconds = String(d.getSeconds()).padStart(2, '0');
+        return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+    },
+
+    // Get current timestamp string (YYYY-MM-DD HH:mm:ss)
     getCurrentTimestamp: function() {
-        return this.formatDate() + ' ' + this.formatTime();
+        return this.formatDateTime();
     },
 
     // Debounce function
@@ -181,6 +193,12 @@ const Utils = {
                 }
                 if (typeof step.skip_enabled !== 'boolean') {
                     throw new Error(`ステップ${i + 1}のskip_enabledが無効です`);
+                }
+                if (typeof step.evidence_required !== 'boolean') {
+                    throw new Error(`ステップ${i + 1}のevidence_requiredが無効です`);
+                }
+                if (typeof step.evidence_description !== 'string') {
+                    throw new Error(`ステップ${i + 1}のevidence_descriptionが無効です`);
                 }
             }
 

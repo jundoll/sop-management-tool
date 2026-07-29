@@ -75,7 +75,7 @@ const app = {
                 this.state.executionData = [];
                 sop.steps.forEach((step, index) => {
                     this.state.executionData[index] = {
-                        time: '',
+                        datetime: '',
                         judgment: '未判定',
                         skip: false,
                         skip_reason: '',
@@ -321,7 +321,7 @@ const app = {
         const templates = this.getSopTemplates();
 
         main.innerHTML = `
-            <div style="max-width: 1200px; margin: 48px auto; padding: 0 24px;">
+            <div class="main-content">
                 <div class="card">
                     <div class="card-header">SOP一覧 (${templates.length}件)</div>
                     
@@ -339,16 +339,20 @@ const app = {
                         <div class="sop-list">
                             ${templates.map((sop, index) => `
                                 <div class="sop-card">
-                                    <div class="sop-card-title">${this.escapeHtml(sop.sop_title)}</div>
-                                    <div class="sop-card-meta">
-                                        ステップ数: ${sop.steps.length} | 
-                                        更新日: ${sop.updated_at ? new Date(sop.updated_at).toLocaleString('ja-JP') : '未保存'}
-                                    </div>
-                                    <div class="sop-card-actions">
-                                        <button class="secondary" onclick="app.editSop('${sop.sop_id}')">編集</button>
-                                        <button onclick="app.executeSop('${sop.sop_id}')">実施</button>
-                                        <button class="secondary" onclick="app.exportSop('${sop.sop_id}')">エクスポート</button>
-                                        <button class="danger" onclick="app.deleteSop('${sop.sop_id}')">削除</button>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                                        <div>
+                                            <div class="sop-card-title" style="margin-bottom:4px;">${this.escapeHtml(sop.sop_title)}</div>
+                                            <div class="sop-card-meta" style="margin-bottom:0;">
+                                                ステップ数: ${sop.steps.length} | 
+                                                更新日: ${sop.updated_at ? new Date(sop.updated_at).toLocaleString('ja-JP') : '未保存'}
+                                            </div>
+                                        </div>
+                                        <div class="sop-card-actions" style="flex-shrink:0;gap:6px;">
+                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.editSop('${sop.sop_id}')">編集</button>
+                                            <button style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.executeSop('${sop.sop_id}')">実施</button>
+                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.exportSop('${sop.sop_id}')">エクスポート</button>
+                                            <button class="danger" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.deleteSop('${sop.sop_id}')">削除</button>
+                                        </div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -400,9 +404,9 @@ const app = {
                 </div>
                 
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <button id="back-to-selection-btn" class="secondary" style="flex:1;">選択画面へ</button>
-                    <button id="save-sop-btn" style="flex:1;">保存</button>
-                    <button id="preview-btn" class="secondary" style="flex:1;">プレビュー</button>
+                    <button id="back-to-selection-btn" class="secondary" style="flex:1;">作成画面へ</button>
+                    <button id="save-sop-btn" disabled style="flex:1;">保存</button>
+                    <button id="cancel-sop-btn" class="danger" style="flex:1;display:none;">キャンセル</button>
                 </div>
                 
                 <button id="add-step-btn" style="width: 100%; margin-bottom: 16px;">+ ステップ追加</button>
@@ -417,17 +421,36 @@ const app = {
         Admin.init();
 
         // Attach header events (buttons now in main content)
-        document.getElementById('back-to-selection-btn').addEventListener('click', () => {
-            this.showSelectionView();
-        });
+        const backBtn = document.getElementById('back-to-selection-btn');
+        const cancelBtn = document.getElementById('cancel-sop-btn');
+        if (backBtn && cancelBtn) {
+            backBtn.addEventListener('click', () => {
+                if (this.hasUnsavedChanges()) {
+                    cancelBtn.style.display = 'flex';
+                    backBtn.style.display = 'none';
+                } else {
+                    this.showSelectionView();
+                }
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                this.state.currentSop = null;
+                this.showSelectionView();
+            });
+        }
 
         document.getElementById('save-sop-btn').addEventListener('click', () => {
             Admin.saveSop();
         });
 
-        document.getElementById('preview-btn').addEventListener('click', () => {
-            Admin.openPreview();
-        });
+        // Enable save button when SOP title changes
+        const titleInput = document.getElementById('sop-title');
+        if (titleInput) {
+            titleInput.addEventListener('input', () => {
+                Admin.updateSaveButtonState(true);
+            });
+        }
+
     },
 
     // Create new SOP

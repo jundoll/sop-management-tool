@@ -48,7 +48,7 @@ const Player = {
         window.app.state.executionData = [];
         window.app.state.currentSop.steps.forEach((step, index) => {
             window.app.state.executionData[index] = {
-                time: '',
+                datetime: '',
                 judgment: '未判定',
                 skip: false,
                 skip_reason: '',
@@ -177,8 +177,8 @@ const Player = {
 
                             <div class="input-section" style="padding:12px;margin-bottom:12px;">
                                 <div class="input-row" style="margin-bottom:8px;">
-                                    <label style="min-width:80px;font-size:10pt;">完了時刻:</label>
-                                    <span id="time-display-${index}" style="font-size:10pt;">${stepData.time ? this.escapeHtml(stepData.time) : '（未記録）'}</span>
+                                    <label style="min-width:80px;font-size:10pt;">完了日付・時刻:</label>
+                                    <span id="datetime-display-${index}" style="font-size:10pt;">${stepData.datetime ? this.escapeHtml(stepData.datetime) : '（未記録）'}</span>
                                 </div>
 
                                 <div class="input-row" style="margin-bottom:8px;">
@@ -186,6 +186,7 @@ const Player = {
                                     <div class="toggle-group" id="judgment-group-${index}" data-step="${index}">
                                         <button class="toggle-btn ${stepData.judgment === 'OK' ? 'selected' : ''}" data-value="OK" data-step="${index}">OK</button>
                                         <button class="toggle-btn ${stepData.judgment === 'NG' ? 'selected' : ''}" data-value="NG" data-step="${index}">NG</button>
+                                        <button class="toggle-btn btn-skip ${stepData.skip ? 'selected' : ''}" data-value="スキップ" data-step="${index}">スキップ</button>
                                     </div>
                                 </div>
 
@@ -200,9 +201,7 @@ const Player = {
                                 </div>
                             </div>
 
-                            <div class="player-step-actions">
-                                <button class="btn-skip step-skip-btn" data-step="${index}" style="font-size:10pt;padding:8px 16px;">スキップ</button>
-                            </div>
+                                
                         </div>
                         <div class="player-step-right">
                             ${step.images && step.images.length > 0 ? `
@@ -252,7 +251,7 @@ const Player = {
 
     // Setup player view event listeners
     setupPlayerEvents: function() {
-        // Judgment toggle - record time on click
+        // Judgment toggle - record datetime on click
         document.querySelectorAll('[id^="judgment-group-"]').forEach(group => {
             group.addEventListener('click', (e) => {
                 const btn = e.target.closest('.toggle-btn');
@@ -262,19 +261,54 @@ const Player = {
                 const stepData = window.app.state.executionData[stepIndex];
                 if (!stepData) return;
 
+                const judgmentValue = btn.dataset.value;
+
+                // If skip is selected, validate skip reason
+                if (judgmentValue === 'スキップ') {
+                    const skipReasonInput = document.getElementById(`skip-reason-${stepIndex}`);
+                    const reason = skipReasonInput ? skipReasonInput.value.trim() : (stepData.skip_reason || '');
+                    
+                    if (!reason) {
+                        // Show error message
+                        const skipSection = document.getElementById(`skip-reason-section-${stepIndex}`);
+                        if (skipSection) {
+                            const existingError = skipSection.querySelector('.skip-error');
+                            if (!existingError) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'skip-error';
+                                errorDiv.textContent = 'スキップ理由を入力してください';
+                                skipSection.appendChild(errorDiv);
+                            }
+                        }
+                        return;
+                    }
+                    
+                    // Clear error if exists
+                    const existingError = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
+                    if (existingError) existingError.remove();
+                    
+                    stepData.skip = true;
+                    stepData.skip_reason = reason;
+                } else {
+                    // OK or NG
+                    stepData.judgment = judgmentValue;
+                    stepData.skip = false;
+                    
+                    // Clear skip error if exists
+                    const existingError = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
+                    if (existingError) existingError.remove();
+                }
+
                 // Toggle selection within this group
                 group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
 
-                // Record judgment
-                stepData.judgment = btn.dataset.value;
-
-                // Auto record time
-                const time = Utils.formatTime();
-                stepData.time = time;
-                const timeDisplay = document.getElementById(`time-display-${stepIndex}`);
-                if (timeDisplay) {
-                    timeDisplay.textContent = time;
+                // Auto record datetime
+                const datetime = Utils.formatDateTime();
+                stepData.datetime = datetime;
+                const datetimeDisplay = document.getElementById(`datetime-display-${stepIndex}`);
+                if (datetimeDisplay) {
+                    datetimeDisplay.textContent = datetime;
                 }
 
                 // Mark step as completed
@@ -352,57 +386,6 @@ const Player = {
         }
     },
 
-    // Skip current step
-    skipStep: function(stepIndex) {
-        const stepData = window.app.state.executionData[stepIndex];
-        if (!stepData) return;
-        
-        // Check if skip reason is provided
-        const skipReasonInput = document.getElementById(`skip-reason-${stepIndex}`);
-        const reason = skipReasonInput ? skipReasonInput.value.trim() : (stepData.skip_reason || '');
-        
-        // Remove existing error message
-        const existingError = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
-        if (existingError) existingError.remove();
-
-        if (!reason) {
-            // Show inline red error message
-            const skipSection = document.getElementById(`skip-reason-section-${stepIndex}`);
-            if (skipSection) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'skip-error';
-                errorDiv.textContent = 'スキップ理由を入力してください';
-                skipSection.appendChild(errorDiv);
-            }
-            return;
-        }
-
-        // Record skip
-        stepData.skip = true;
-        stepData.skip_reason = reason;
-
-        // Auto record time
-        const time = Utils.formatTime();
-        stepData.time = time;
-
-        // Mark step as completed
-        const stepCard = document.querySelector(`.player-step-card[data-step-index="${stepIndex}"]`);
-        if (stepCard) {
-            const header = stepCard.querySelector('.player-step-header');
-            if (!header.querySelector('.step-completed-badge')) {
-                const badge = document.createElement('span');
-                badge.className = 'step-completed-badge';
-                badge.textContent = '完了';
-                header.appendChild(badge);
-            }
-        }
-
-        // Save execution state
-        this.saveExecutionState();
-
-        // Check if all steps completed
-        this.checkAllCompleted();
-    },
 
     // Add execution image
     addExecutionImage: function(stepIndex, base64) {

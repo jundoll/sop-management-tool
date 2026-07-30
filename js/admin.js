@@ -13,6 +13,16 @@ const Admin = {
         }
     },
 
+    // Update detail save button disabled state based on changes
+    updateDetailSaveButtonState: function(index, enable) {
+        const detailEl = document.getElementById(`step-detail-${index}`);
+        if (!detailEl) return;
+        const saveBtn = detailEl.querySelector('.detail-save-btn');
+        if (saveBtn) {
+            saveBtn.disabled = !enable;
+        }
+    },
+
     // Initialize admin view
     init: function() {
         this.currentStepIndex = null;
@@ -67,9 +77,9 @@ const Admin = {
                                 <input type="text" class="detail-evidence-description" data-index="${index}" value="${this.escapeHtml(step.evidence_description || '')}" placeholder="エビデンスの説明（例：画面キャプチャ、測定値など）" style="width:100%;font-size:10pt;padding:6px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);margin-top:4px;">
                             </div>
                             <div class="detail-actions" style="display:flex;gap:8px;margin-top:8px;">
-                                <button class="detail-save-btn" data-index="${index}" style="flex:1;">保存</button>
-                                <button class="secondary detail-cancel-btn" data-index="${index}" style="flex:1;">キャンセル</button>
-                                <button class="danger detail-delete-btn" data-index="${index}" style="flex:1;">削除</button>
+                                <button class="detail-save-btn" data-index="${index}" disabled>保存</button>
+                                <button class="secondary detail-cancel-btn" data-index="${index}">キャンセル</button>
+                                <button class="danger detail-delete-btn" data-index="${index}">削除</button>
                             </div>
                         </div>
                         <div class="step-detail-right">
@@ -133,6 +143,9 @@ const Admin = {
                 // Ignore clicks on buttons inside step-item
                 if (e.target.closest('button')) return;
                 
+                // Ignore clicks on elements inside the detail area (to prevent closing while editing)
+                if (e.target.closest('.step-detail')) return;
+                
                 const index = parseInt(stepItem.dataset.index);
                 const detailEl = document.getElementById(`step-detail-${index}`);
                 if (detailEl) {
@@ -192,6 +205,12 @@ const Admin = {
                 const textarea = e.target.closest('.detail-instruction, .detail-comment, .detail-evidence-description');
                 if (!textarea) return;
                 this.updateSaveButtonState(true);
+                // Enable the detail save button for the current step
+                const stepItem = textarea.closest('.step-item');
+                if (stepItem) {
+                    const idx = parseInt(stepItem.dataset.index);
+                    this.updateDetailSaveButtonState(idx, true);
+                }
             });
             
             // Enable save button when checkbox is changed
@@ -199,6 +218,12 @@ const Admin = {
                 const checkbox = e.target.closest('.detail-evidence-required');
                 if (!checkbox) return;
                 this.updateSaveButtonState(true);
+                // Enable the detail save button for the current step
+                const stepItem = checkbox.closest('.step-item');
+                if (stepItem) {
+                    const idx = parseInt(stepItem.dataset.index);
+                    this.updateDetailSaveButtonState(idx, true);
+                }
             });
         }
 
@@ -370,7 +395,7 @@ const Admin = {
         this.renderStepsList();
     },
 
-    // Add new step - adds directly to list without modal
+    // Add new step - adds directly to list without modal, auto-expands detail area
     addStep: function() {
         // Create new empty step at the end
         const newIndex = window.app.state.currentSop.steps.length;
@@ -389,9 +414,12 @@ const Admin = {
         window.app.state.currentSop.steps.push(newStep);
         this.renderStepsList();
         
-        // Automatically open detail for the new step and start inline editing
+        // Automatically open detail area for the new step (all fields accessible)
         setTimeout(() => {
-            this.startInlineEdit(newIndex);
+            const detailEl = document.getElementById(`step-detail-${newIndex}`);
+            if (detailEl) {
+                detailEl.style.display = 'block';
+            }
         }, 50);
     },
 
@@ -623,7 +651,9 @@ const Admin = {
             if (preview) preview.textContent = steps[index].instruction || '（未入力）';
         }
         
-        // After saving, keep save enabled until global save
+        // After saving, disable detail save button until next change
+        this.updateDetailSaveButtonState(index, false);
+        // Enable global save button
         this.updateSaveButtonState(true);
     },
 

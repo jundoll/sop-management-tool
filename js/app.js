@@ -406,7 +406,7 @@ const app = {
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
                     <button id="back-to-selection-btn" class="secondary" style="flex:1;">作成画面へ</button>
                     <button id="save-sop-btn" disabled style="flex:1;">保存</button>
-                    <button id="cancel-sop-btn" class="danger" style="flex:1;display:none;">キャンセル</button>
+                    <button id="cancel-sop-btn" class="danger" style="flex:1;">キャンセル</button>
                 </div>
                 
                 <button id="add-step-btn" style="width: 100%; margin-bottom: 16px;">+ ステップ追加</button>
@@ -423,19 +423,28 @@ const app = {
         // Attach header events (buttons now in main content)
         const backBtn = document.getElementById('back-to-selection-btn');
         const cancelBtn = document.getElementById('cancel-sop-btn');
-        if (backBtn && cancelBtn) {
+        if (backBtn) {
             backBtn.addEventListener('click', () => {
                 if (this.hasUnsavedChanges()) {
-                    cancelBtn.style.display = 'flex';
-                    backBtn.style.display = 'none';
+                    this.confirmUnsavedChanges((action) => {
+                        if (action === 'cancel') return;
+                        if (action === 'save') {
+                            // Save is handled by confirmUnsavedChanges
+                        }
+                        this.doShowSelectionView();
+                    });
                 } else {
-                    this.showSelectionView();
+                    this.doShowSelectionView();
                 }
             });
+        }
 
+        if (cancelBtn) {
             cancelBtn.addEventListener('click', () => {
-                this.state.currentSop = null;
-                this.showSelectionView();
+                if (this.state.currentSop) {
+                    this.state.currentSop = null;
+                }
+                this.doShowSelectionView();
             });
         }
 

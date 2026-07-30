@@ -160,67 +160,69 @@ const Player = {
                         <span class="step-number">ステップ ${index + 1}</span>
                         ${isCompleted ? '<span class="step-completed-badge">完了</span>' : ''}
                     </div>
-                    <div class="player-step-row">
-                        <div class="player-step-left">
-                            <div class="instruction" style="font-size:12pt;padding:12px;margin-bottom:12px;">
-                                ${this.escapeHtml(step.instruction)}
-                            </div>
-
-                            ${step.comment ? `
-                                <div class="comment-section" style="margin-bottom:12px;">
-                                    <label>補足コメント:</label>
-                                    <div style="background:#f5f5f5;padding:10px;border-radius:4px;border-left:4px solid #0078d4;font-size:10pt;">
-                                        ${this.escapeHtml(step.comment)}
-                                    </div>
-                                </div>
-                            ` : ''}
-
-                            <div class="input-section" style="padding:12px;margin-bottom:12px;">
-                                <div class="input-row" style="margin-bottom:8px;">
-                                    <label style="min-width:80px;font-size:10pt;">完了日付・時刻:</label>
-                                    <span id="datetime-display-${index}" style="font-size:10pt;">${stepData.datetime ? this.escapeHtml(stepData.datetime) : '（未記録）'}</span>
-                                </div>
-
-                                <div class="input-row" style="margin-bottom:8px;">
-                                    <label style="min-width:80px;font-size:10pt;">判定:</label>
-                                    <div class="toggle-group" id="judgment-group-${index}" data-step="${index}">
-                                        <button class="toggle-btn ${stepData.judgment === 'OK' ? 'selected' : ''}" data-value="OK" data-step="${index}">OK</button>
-                                        <button class="toggle-btn ${stepData.judgment === 'NG' ? 'selected' : ''}" data-value="NG" data-step="${index}">NG</button>
-                                        <button class="toggle-btn btn-skip ${stepData.skip ? 'selected' : ''}" data-value="スキップ" data-step="${index}">スキップ</button>
-                                    </div>
-                                </div>
-
-                                <div class="input-row" style="margin-bottom:8px;">
-                                    <label style="min-width:80px;font-size:10pt;">作業コメント:</label>
-                                </div>
-                                <textarea class="step-operator-comment" data-step="${index}" placeholder="作業記録を入力" rows="2" style="font-size:10pt;">${stepData.comment || ''}</textarea>
-
-                                <div class="skip-reason-section" id="skip-reason-section-${index}" style="margin-top:8px;padding:10px;">
-                                    <label for="skip-reason-${index}" style="font-size:10pt;">スキップ理由</label>
-                                    <textarea class="step-skip-reason" id="skip-reason-${index}" data-step="${index}" placeholder="スキップする場合は理由を入力してください" rows="2" style="font-size:10pt;">${stepData.skip_reason || ''}</textarea>
-                                </div>
-                            </div>
-
-                                
+                    <div class="player-step-top">
+                        <div class="instruction" style="font-size:12pt;padding:12px;margin-bottom:8px;">
+                            ${this.escapeHtml(step.instruction)}
                         </div>
-                        <div class="player-step-right">
-                            ${step.images && step.images.length > 0 ? `
-                                <div class="reference-images" style="margin-bottom:12px;">
-                                    <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参照画像:</label>
+
+                        ${step.images && step.images.length > 0 ? `
+                            <div class="reference-images" style="margin-bottom:8px;">
+                                <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参照画像:</label>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
                                     ${step.images.map((img, idx) => `
-                                        <img src="${img}" class="reference-image" style="max-width:100%;max-height:120px;" alt="参考画像${idx + 1}" onclick="Player.openImagePreview('${img}')">
+                                        <img src="${img}" class="reference-image" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid #ddd;cursor:pointer;" alt="参考画像${idx + 1}" onclick="Player.openImagePreview('${img}')">
                                     `).join('')}
                                 </div>
-                            ` : ''}
-                            <div class="player-evidence-area">
+                            </div>
+                        ` : ''}
+
+                        ${step.comment ? `
+                            <div class="comment-section" style="margin-bottom:4px;">
+                                <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">補足コメント:</label>
+                                <div style="background:#f5f5f5;padding:8px;border-radius:4px;border-left:4px solid #0078d4;font-size:10pt;">
+                                    ${this.escapeHtml(step.comment)}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="player-step-bottom">
+                        <div class="input-section" style="padding:12px;margin-bottom:0;">
+                            <div class="input-row" style="margin-bottom:8px;">
+                                <label style="min-width:80px;font-size:10pt;">完了日付・時刻:</label>
+                                <span id="datetime-display-${index}" style="font-size:10pt;">${stepData.datetime ? this.escapeHtml(stepData.datetime) : '（未記録）'}</span>
+                            </div>
+
+                            <div class="input-row" style="margin-bottom:8px;">
+                                <label style="min-width:80px;font-size:10pt;">判定:</label>
+                                <div class="toggle-group" id="judgment-group-${index}" data-step="${index}">
+                                    <button class="toggle-btn ${stepData.judgment === 'OK' ? 'selected' : ''}" data-value="OK" data-step="${index}">OK</button>
+                                    <button class="toggle-btn ${stepData.judgment === 'NG' ? 'selected' : ''}" data-value="NG" data-step="${index}">NG</button>
+                                    <button class="toggle-btn btn-skip ${stepData.skip ? 'selected' : ''}" data-value="スキップ" data-step="${index}">スキップ</button>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom:8px;">
+                                <label style="font-size:10pt;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">作業コメント:</label>
+                                <textarea class="step-operator-comment" data-step="${index}" placeholder="作業記録を入力" rows="2" style="font-size:10pt;width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);">${stepData.comment || ''}</textarea>
+                            </div>
+
+                            <div class="skip-reason-section" id="skip-reason-section-${index}" style="margin-top:8px;padding:10px;">
+                                <label for="skip-reason-${index}" style="font-size:10pt;">スキップ理由</label>
+                                <textarea class="step-skip-reason" id="skip-reason-${index}" data-step="${index}" placeholder="スキップする場合は理由を入力してください" rows="2" style="font-size:10pt;width:100%;">${stepData.skip_reason || ''}</textarea>
+                            </div>
+
+                            <div class="player-evidence-area" style="margin-top:12px;">
                                 <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">エビデンス画像:</label>
-                                <div class="captured-images" id="captured-images-${index}" data-step="${index}">
-                                    ${(stepData.images || []).map((img, idx) => `
-                                        <div style="position:relative;display:inline-block;">
-                                            <img src="${img}" class="execution-thumb" style="width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onclick="Player.openImagePreview('${img}')">
-                                            <button class="image-delete-btn" onclick="Player.deleteImage(${index}, ${idx})" title="画像を削除">×</button>
-                                        </div>
-                                    `).join('')}
+                                <div class="image-upload-area" style="min-height:80px;padding:10px;">
+                                    <div class="paste-hint" style="font-size:9pt;">Ctrl+V で画像を貼り付け</div>
+                                    <div class="captured-images" id="captured-images-${index}" data-step="${index}">
+                                        ${(stepData.images || []).map((img, idx) => `
+                                            <div style="position:relative;display:inline-block;">
+                                                <img src="${img}" class="execution-thumb" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onclick="Player.openImagePreview('${img}')">
+                                                <button class="image-delete-btn" onclick="Player.deleteImage(${index}, ${idx})" title="画像を削除">×</button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
                                 </div>
                             </div>
                         </div>

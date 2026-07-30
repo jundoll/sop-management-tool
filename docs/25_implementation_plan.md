@@ -1,107 +1,107 @@
 # 実装計画書
 
-## 1. 実施内容
+## 修正対象：5つのフィードバック未修正項目
 
-### 1.1 フィードバック6項目の修正
+### 変更ファイル一覧
+- `js/admin.js` - #19, #20, #24, #25
+- `js/app.js` - #24
+- `css/styles.css` - #19, #25, #30
 
-以下の6項目の実装不十分箇所を修正する：
+### 変更なしファイル
+- `index.html`
+- `js/utils.js`
+- `js/player.js`
+- `js/excelExport.js`
 
-| # | フィードバック項目 | 修正内容 | 対象ファイル |
-|---|-------------------|---------|------------|
-| 12 | ステップ編集で詳細エリアが閉じてしまう | clickハンドラに `.step-detail` 除外判定を追加 | `js/admin.js` |
-| 14 | 保存、キャンセル、削除は横並びに。余計な空白も入れない | detail-actionsのflex:1解除 | `css/styles.css`, `js/admin.js` |
-| 15 | 新規ステップ作成時に詳細レベルの内容を入れられるように | 新規ステップ追加時に詳細エリアを自動展開 | `js/admin.js` |
-| 16 | 変更が加わったときだけ保存ボタンを有効に | detail-save-btnのdisabled制御を追加 | `js/admin.js` |
-| 18 | 「選択画面へ」の問題を見直し | キャンセルボタンの常時表示、確認ダイアログ経由 | `js/app.js` |
-| 25 | 各ステップの上側をステップ、下側を実施情報に | 実施画面の上下2段構成レイアウト変更 | `js/player.js`, `css/styles.css` |
+---
 
-## 2. 実装手順
+## 実装手順
 
-### ステップ1: 詳細エリア開閉制御の修正（#12）
-**ファイル**: `js/admin.js`
-- 129-142行の step-item click ハンドラを修正
-- `e.target.closest('.step-detail')` が存在する場合は toggle をスキップ
+### Step 1: #24 - SOP保存時のポップアップ2重表示防止
 
-### ステップ2: 詳細エリアボタンのflex:1解除（#14）
-**ファイル**: `js/admin.js`, `css/styles.css`
-- `detail-actions` の `style="flex:1"` を削除し、各ボタンの幅を内容に応じた auto にする
-- CSSに `.detail-actions button { flex: none; }` を追加
+**ファイル:** `js/app.js`
 
-### ステップ3: 新規ステップ作成時の詳細エリア自動展開（#15）
-**ファイル**: `js/admin.js`
-- `addStep()` 関数を修正
-- `startInlineEdit(newIndex)` の代わりに詳細エリア（step-detail）を自動表示
-- `setTimeout` 内で `detailEl.style.display = 'block'` を設定
+**修正内容:**
+- `showAdminView()` 内の `save-sop-btn` に対する click イベントハンドラ登録（451-453行目）を削除する
+- `setupEventListeners()` 内のハンドラが唯一の保存処理実行箇所となる
 
-### ステップ4: 詳細エリア保存ボタンのdisabled制御（#16）
-**ファイル**: `js/admin.js`
-- `detail-save-btn` に初期状態で `disabled` 属性を追加
-- 詳細エリア内の入力変更を検知して enabled に切り替え
-- `saveDetailEdit()` 実行後に再度 disabled に戻す
-- 変更検知: instruction, comment, evidence_required, evidence_description, images
+**理由:**
+`showAdminView()` が呼ばれるたびに新しい click ハンドラが追加され、`setupEventListeners()` のハンドラと重複することで保存時に alert が2回表示される。
 
-### ステップ5: キャンセルボタンの常時表示と確認ダイアログ経由（#18）
-**ファイル**: `js/app.js`
-- `showAdminView()` 内の `cancel-sop-btn` の `display:none` を削除（常時表示）
-- `back-to-selection-btn`（作成画面へ）押下時に `confirmUnsavedChanges` を経由する
-- `cancel-sop-btn` 押下時は未保存SOPを破棄して選択画面へ戻る
+---
 
-### ステップ6: 実施画面の上下2段構成レイアウト変更（#25）
-**ファイル**: `js/player.js`, `css/styles.css`
-- `player-step-card` 内のレイアウトを左右2カラムから上下2段に変更
-- 上段: 指示内容、参照画像、補足コメント
-- 下段: 完了日付・時刻、判定ボタン、作業コメント、スキップ理由入力、エビデンス画像貼り付け
-- 関連CSSクラスを追加・修正
+### Step 2: #20 - 画像ペーストの確実な動作
 
-## 3. 変更ファイル一覧
+**ファイル:** `js/admin.js`
 
-### 変更ファイル
-- `js/admin.js` - 作成画面の修正（#12, #14, #15, #16）
-- `js/app.js` - 作成画面のボタン制御修正（#18）
-- `js/player.js` - 実施画面レイアウト変更（#25）
-- `css/styles.css` - レイアウト関連CSSの追加・修正（#14, #25）
+**修正内容:**
+- `renderStepsList()` メソッドの末尾で `_attachDetailPasteHandlers()` を呼び出す
+- これにより詳細エリア描画後に各画像アップロードエリアにペーストハンドラが確実にアタッチされる
 
-## 4. 実装優先度
+**理由:**
+`_attachDetailPasteHandlers` 関数が定義されているが、`setupEventListeners()` 内で定義されたまま一度も実行されていない。`renderStepsList()` の末尾で呼び出すことで、詳細エリア描画後に必ずペーストハンドラがアタッチされる。
 
-### 優先度高（即時実装）
-1. #12 詳細エリア開閉制御の修正
-2. #15 新規ステップ作成時の詳細エリア自動展開
-3. #16 詳細エリア保存ボタンのdisabled制御
+---
 
-### 優先度中
-4. #18 キャンセルボタンの常時表示と確認ダイアログ経由
-5. #14 詳細エリアボタンのflex:1解除
+### Step 3: #19 - ステップ編集時のステップ番号表示維持
 
-### 優先度低
-6. #25 実施画面の上下2段構成レイアウト変更
+**ファイル:** `css/styles.css`
 
-## 5. テスト観点
+**修正内容:**
+- `.step-item.editing` 状態でも `.step-index` が非表示にならないようにCSSを確認・修正する
+- 必要に応じて `.step-item.editing .step-index` の明示的な表示ルールを追加する
 
-### 5.1 フィードバック項目の検証
-各フィードバック項目について以下を確認：
-- 実装が正しく動作するか
-- UI/UXが期待通りか
-- 既存機能への影響がないか
+**ファイル:** `js/admin.js`
 
-### 5.2 回帰テスト
-- SOP作成・保存・読み込み
-- ステップのCRUD操作
-- ドラッグ＆ドロップ並び替え
-- 実施画面での判定・記録
-- Excel出力
+**修正内容（確認）:**
+- `startInlineEdit` がイベントハンドラから呼ばれていないことを確認し、詳細エリア開閉方式に統一されていることを確認する（現状の動作を維持）
 
-### 5.3 ブラウザテスト
-- Microsoft Edge最新版での動作確認
-- GitHub Pages相当のHTTPS環境での確認
+**理由:**
+`.step-item.editing` 時に `.step-preview` が `display: none` になるが、`.step-index` は `.step-item-left` 内にあり、引き続き表示される。CSSで明示的に表示を保証する。
 
-## 6. 検証基準
+---
 
-### 6.1 完了条件
-- フィードバック6項目の実装完了
-- 既存テストケースの全 Pass
-- 手動テストでの動作確認
+### Step 4: #25 - 参考画像欄を縦に長くする
 
-### 6.2 品質基準
-- 構文エラーなし
-- ブラウザコンソールエラーなし
-- パフォーマンス基準を満たす
+**ファイル:** `css/styles.css`
+
+**修正内容:**
+- `.step-detail-right` の幅制限を見直す（固定200px → 可変）
+- 画像アップロードエリアの最小高さを増やす
+- 画像サムネイルグリッドのレイアウトを調整
+
+**ファイル:** `js/admin.js`
+
+**修正内容:**
+- 詳細エリア内の画像アップロードエリアのスタイル調整（必要に応じて）
+
+**理由:**
+参考画像欄が固定幅200pxで制限されており、縦方向のスペースが十分に活用されていない。
+
+---
+
+### Step 5: #30 - エビデンス貼り付け欄の謎の枠削除
+
+**ファイル:** `css/styles.css`
+
+**修正内容:**
+- `player-evidence-area` 内の `image-upload-area` の破線枠（`border: 2px dashed`）を削除する
+- `captured-images` の破線枠は維持し、プレースホルダーテキストも維持する
+
+**理由:**
+実施画面のエビデンス領域で `image-upload-area`（破線枠）と `captured-images`（破線枠）が入れ子になり、二重枠が表示される。
+
+---
+
+## 実装順序
+
+1. **#24**: 重複ハンドラ削除（`js/app.js`） - 最も影響範囲が大きい
+2. **#20**: ペーストハンドラ確実呼び出し（`js/admin.js`） - 機能修正
+3. **#19**: ステップ番号表示CSS確認（`css/styles.css`） - 表示確認のみ
+4. **#25**: 画像エリア拡大（`css/styles.css` + `js/admin.js`） - レイアウト調整
+5. **#30**: 二重枠解消（`css/styles.css`） - レイアウト調整
+
+## ビルド・検証
+- ビルド不要（Vanilla JS）
+- 各修正後にブラウザで動作確認
+- 全修正完了後に統合テスト

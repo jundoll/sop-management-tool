@@ -338,6 +338,11 @@ textarea {
     display: none;
 }
 
+.step-item.editing .step-index {
+    display: flex;
+    visibility: visible;
+}
+
 .step-item.editing .inline-edit-area {
     display: block;
     width: 100%;
@@ -420,13 +425,13 @@ textarea {
 }
 
 .step-detail-right {
-    width: 200px;
-    min-width: 160px;
-    flex-shrink: 0;
+    min-width: 200px;
+    flex: 1;
+    max-width: 300px;
 }
 
 .step-detail-right .image-upload-area {
-    min-height: 100px;
+    min-height: 180px;
     padding: 12px;
 }
 
@@ -942,9 +947,9 @@ textarea {
 }
 
 .sop-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .sop-card {
@@ -1163,6 +1168,14 @@ textarea {
 .captured-images.drag-over {
     border-color: var(--primary);
     background: var(--primary-light);
+}
+
+/* Evidence area: remove outer double border from image-upload-area */
+.player-evidence-area .image-upload-area {
+    border: none;
+    background: transparent;
+    padding: 0;
+    min-height: auto;
 }
 
 /* SOP title input */

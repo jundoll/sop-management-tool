@@ -77,9 +77,9 @@ const Admin = {
                                 <input type="text" class="detail-evidence-description" data-index="${index}" value="${this.escapeHtml(step.evidence_description || '')}" placeholder="エビデンスの説明（例：画面キャプチャ、測定値など）" style="width:100%;font-size:10pt;padding:6px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);margin-top:4px;">
                             </div>
                             <div class="detail-actions" style="display:flex;gap:8px;margin-top:8px;">
-                                <button class="detail-save-btn" data-index="${index}" disabled>保存</button>
-                                <button class="secondary detail-cancel-btn" data-index="${index}">キャンセル</button>
-                                <button class="danger detail-delete-btn" data-index="${index}">削除</button>
+                                <button class="detail-save-btn" data-index="${index}" disabled>💾 保存</button>
+                                <button class="secondary detail-cancel-btn" data-index="${index}">✕ キャンセル</button>
+                                <button class="danger detail-delete-btn" data-index="${index}">🗑️ 削除</button>
                             </div>
                         </div>
                         <div class="step-detail-right">
@@ -114,6 +114,11 @@ const Admin = {
                 });
             }
         });
+        
+        // Ensure paste handlers are attached to all detail image upload areas
+        if (this._attachDetailPasteHandlers) {
+            this._attachDetailPasteHandlers();
+        }
     },
 
     // Setup event listeners
@@ -140,18 +145,27 @@ const Admin = {
                 const stepItem = e.target.closest('.step-item');
                 if (!stepItem) return;
                 
-                // Ignore clicks on buttons inside step-item
-                if (e.target.closest('button')) return;
-                
-                // Ignore clicks on elements inside the detail area (to prevent closing while editing)
-                if (e.target.closest('.step-detail')) return;
-                
                 const index = parseInt(stepItem.dataset.index);
                 const detailEl = document.getElementById(`step-detail-${index}`);
-                if (detailEl) {
-                    const isHidden = detailEl.style.display === 'none';
-                    detailEl.style.display = isHidden ? 'block' : 'none';
+                if (!detailEl) return;
+                
+                const isHidden = detailEl.style.display === 'none';
+                
+                // If detail is already open, only close when clicking on the header area (step-item-left)
+                if (!isHidden) {
+                    // Ignore clicks on buttons inside step-item
+                    if (e.target.closest('button')) return;
+                    // Ignore clicks on elements inside the detail area (to prevent closing while editing)
+                    if (e.target.closest('.step-detail')) return;
+                    // Only toggle close if clicking on the header area
+                    if (e.target.closest('.step-item-left')) {
+                        detailEl.style.display = 'none';
+                    }
+                    return;
                 }
+                
+                // If detail is hidden, open it on any click on the step-item
+                detailEl.style.display = 'block';
             });
 
             // Left delete button in step-item (legacy, may be removed after CSS update)
@@ -274,8 +288,8 @@ const Admin = {
         editArea.innerHTML = `
             <textarea placeholder="作業指示内容を入力">${this.escapeHtml(step.instruction)}</textarea>
             <div class="inline-edit-actions">
-                <button class="inline-save-btn" data-index="${index}">保存</button>
-                <button class="secondary inline-cancel-btn" data-index="${index}">キャンセル</button>
+                <button class="inline-save-btn" data-index="${index}">💾 保存</button>
+                <button class="secondary inline-cancel-btn" data-index="${index}">✕ キャンセル</button>
             </div>
         `;
         stepItem.appendChild(editArea);
@@ -630,9 +644,11 @@ const Admin = {
         
         if (instTextarea) {
             const val = instTextarea.value.trim();
-            if (val) {
-                steps[index].instruction = val;
+            if (!val) {
+                alert('作業指示内容を入力してください。');
+                return;
             }
+            steps[index].instruction = val;
         }
         if (commentTextarea) {
             steps[index].comment = commentTextarea.value.trim();
@@ -655,6 +671,9 @@ const Admin = {
         this.updateDetailSaveButtonState(index, false);
         // Enable global save button
         this.updateSaveButtonState(true);
+        
+        // Close detail area after saving (feedback #22)
+        detailEl.style.display = 'none';
     },
 
     // Restore detail edit (cancel button)

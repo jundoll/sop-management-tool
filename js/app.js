@@ -348,10 +348,10 @@ const app = {
                                             </div>
                                         </div>
                                         <div class="sop-card-actions" style="flex-shrink:0;gap:6px;">
-                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.editSop('${sop.sop_id}')">編集</button>
-                                            <button style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.executeSop('${sop.sop_id}')">実施</button>
-                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.exportSop('${sop.sop_id}')">エクスポート</button>
-                                            <button class="danger" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.deleteSop('${sop.sop_id}')">削除</button>
+                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.editSop('${sop.sop_id}')" title="編集">✏️</button>
+                                            <button style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.executeSop('${sop.sop_id}')" title="実施">▶️</button>
+                                            <button class="secondary" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.exportSop('${sop.sop_id}')" title="エクスポート">⬇️</button>
+                                            <button class="danger" style="padding:4px 10px;font-size:10pt;" onclick="event.stopPropagation();app.deleteSop('${sop.sop_id}')" title="削除">🗑️</button>
                                         </div>
                                     </div>
                                 </div>
@@ -404,9 +404,9 @@ const app = {
                 </div>
                 
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <button id="back-to-selection-btn" class="secondary" style="flex:1;">作成画面へ</button>
-                    <button id="save-sop-btn" disabled style="flex:1;">保存</button>
-                    <button id="cancel-sop-btn" class="danger" style="flex:1;">キャンセル</button>
+                    <button id="back-to-selection-btn" class="secondary" style="flex:1;">選択画面へ</button>
+                    <button id="save-sop-btn" disabled style="flex:1;">💾 保存</button>
+                    <button id="cancel-sop-btn" class="danger" style="flex:1;">✕ キャンセル</button>
                 </div>
                 
                 <button id="add-step-btn" style="width: 100%; margin-bottom: 16px;">+ ステップ追加</button>
@@ -447,10 +447,6 @@ const app = {
                 this.doShowSelectionView();
             });
         }
-
-        document.getElementById('save-sop-btn').addEventListener('click', () => {
-            Admin.saveSop();
-        });
 
         // Enable save button when SOP title changes
         const titleInput = document.getElementById('sop-title');

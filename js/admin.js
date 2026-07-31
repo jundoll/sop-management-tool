@@ -27,6 +27,7 @@ const Admin = {
     init: function() {
         this.currentStepIndex = null;
         this.currentImages = [];
+        // Reset listener attachment flag so handlers re-bind after DOM recreation
         this._listenersAttached = false;
         this.renderStepsList();
         this.setupEventListeners();
@@ -77,20 +78,21 @@ const Admin = {
                                 <input type="text" class="detail-evidence-description" data-index="${index}" value="${this.escapeHtml(step.evidence_description || '')}" placeholder="エビデンスの説明（例：画面キャプチャ、測定値など）" style="width:100%;font-size:10pt;padding:6px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);margin-top:4px;">
                             </div>
                             <div class="detail-actions" style="display:flex;gap:8px;margin-top:8px;">
-                                <button class="detail-save-btn" data-index="${index}" disabled>💾 保存</button>
-                                <button class="secondary detail-cancel-btn" data-index="${index}">✕ キャンセル</button>
-                                <button class="danger detail-delete-btn" data-index="${index}">🗑️ 削除</button>
+                                <button class="detail-save-btn" data-index="${index}" disabled><span class="material-icons">save</span></button>
+                                <button class="secondary detail-cancel-btn" data-index="${index}"><span class="material-icons">close</span></button>
+                                <button class="danger detail-delete-btn" data-index="${index}"><span class="material-icons">delete</span></button>
                             </div>
                         </div>
                         <div class="step-detail-right">
                             <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参考画像</label>
-                            <div class="image-upload-area" id="detail-image-upload-${index}" style="min-height:100px;padding:10px;" data-step="${index}">
+                            <div class="image-upload-area" id="detail-image-upload-${index}" data-step="${index}" tabindex="0">
                                 <div class="paste-hint" style="font-size:9pt;">Ctrl+V で画像を貼り付け</div>
                                 <div class="image-thumbnails" id="detail-image-thumbnails-${index}">
                                     ${step.images && step.images.length > 0 ? step.images.map((img, idx) => `
-                                        <div style="position:relative;">
+                                        <div style="position:relative;display:inline-block;">
+                                            <span class="image-number-label">${idx + 1}</span>
                                             <img src="${img}" class="image-thumbnail" alt="画像${idx + 1}" onclick="Admin.openImagePreview('${img}')">
-                                            <button class="detail-image-delete-btn danger" data-step-index="${index}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">×</button>
+                                            <button class="detail-image-delete-btn danger" data-step-index="${index}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:0;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;line-height:1;"><span class="material-icons" style="font-size:16px;margin:0;">delete</span></button>
                                         </div>
                                     `).join('') : ''}
                                 </div>
@@ -105,20 +107,10 @@ const Admin = {
         // Attach drag and drop events
         this.attachDragEvents();
         
-        // Attach paste handlers for detail image upload areas
-        steps.forEach((step, index) => {
-            const uploadArea = document.getElementById(`detail-image-upload-${index}`);
-            if (uploadArea) {
-                Utils.handlePaste(uploadArea, 1280, 0.8, (base64) => {
-                    this.addDetailImage(index, base64);
-                });
+            // Ensure paste handlers are attached to all detail image upload areas
+            if (this._attachDetailPasteHandlers) {
+                this._attachDetailPasteHandlers();
             }
-        });
-        
-        // Ensure paste handlers are attached to all detail image upload areas
-        if (this._attachDetailPasteHandlers) {
-            this._attachDetailPasteHandlers();
-        }
     },
 
     // Setup event listeners
@@ -145,27 +137,41 @@ const Admin = {
                 const stepItem = e.target.closest('.step-item');
                 if (!stepItem) return;
                 
+                // Ignore clicks on buttons - handled by other listeners
+                if (e.target.closest('button')) return;
+                
                 const index = parseInt(stepItem.dataset.index);
                 const detailEl = document.getElementById(`step-detail-${index}`);
                 if (!detailEl) return;
                 
                 const isHidden = detailEl.style.display === 'none';
                 
-                // If detail is already open, only close when clicking on the header area (step-item-left)
                 if (!isHidden) {
-                    // Ignore clicks on buttons inside step-item
-                    if (e.target.closest('button')) return;
-                    // Ignore clicks on elements inside the detail area (to prevent closing while editing)
-                    if (e.target.closest('.step-detail')) return;
-                    // Only toggle close if clicking on the header area
+                    // Only close when clicking on the header area (step-item-left)
                     if (e.target.closest('.step-item-left')) {
                         detailEl.style.display = 'none';
+                        stepItem.classList.remove('editing');
                     }
                     return;
                 }
                 
-                // If detail is hidden, open it on any click on the step-item
+                // Open detail if it's hidden and mark as editing
                 detailEl.style.display = 'block';
+                stepItem.classList.add('editing');
+                
+                // Attach paste handler for this detail area after it becomes visible
+                setTimeout(() => {
+                    const uploadArea = document.getElementById(`detail-image-upload-${index}`);
+                    if (uploadArea) {
+                        // Only attach if not already attached to prevent duplicate handlers
+                        if (!uploadArea.dataset.pasteAttached) {
+                            uploadArea.dataset.pasteAttached = 'true';
+                            Utils.handlePaste(uploadArea, 1280, 0.8, (base64) => {
+                                this.addDetailImage(index, base64);
+                            });
+                        }
+                    }
+                }, 100);
             });
 
             // Left delete button in step-item (legacy, may be removed after CSS update)
@@ -239,6 +245,20 @@ const Admin = {
                     this.updateDetailSaveButtonState(idx, true);
                 }
             });
+
+            // Inline error display for required instruction field
+            stepsList.addEventListener('input', (e) => {
+                const inst = e.target.closest('.detail-instruction');
+                if (!inst) return;
+                const stepItem = inst.closest('.step-item');
+                if (!stepItem) return;
+                const idx = parseInt(stepItem.dataset.index);
+                if (!inst.value.trim()) {
+                    this.showInlineError(idx, '作業指示内容は必須です');
+                } else {
+                    this.clearInlineError(idx);
+                }
+            });
         }
 
         // Paste handler for reference images (modal) - if elements exist
@@ -257,7 +277,7 @@ const Admin = {
                 if (uploadArea && !uploadArea.dataset.pasteAttached) {
                     uploadArea.dataset.pasteAttached = 'true';
                     Utils.handlePaste(uploadArea, 1280, 0.8, (base64) => {
-                        this.addDetailImage(index, base64);
+                        Admin.addDetailImage(index, base64);
                     });
                 }
             });
@@ -288,8 +308,8 @@ const Admin = {
         editArea.innerHTML = `
             <textarea placeholder="作業指示内容を入力">${this.escapeHtml(step.instruction)}</textarea>
             <div class="inline-edit-actions">
-                <button class="inline-save-btn" data-index="${index}">💾 保存</button>
-                <button class="secondary inline-cancel-btn" data-index="${index}">✕ キャンセル</button>
+                <button class="inline-save-btn" data-index="${index}"><span class="material-icons">save</span></button>
+                <button class="secondary inline-cancel-btn" data-index="${index}"><span class="material-icons">close</span></button>
             </div>
         `;
         stepItem.appendChild(editArea);
@@ -580,15 +600,17 @@ const Admin = {
         const container = document.getElementById(`detail-image-thumbnails-${stepIndex}`);
         if (container) {
             container.innerHTML = steps[stepIndex].images.map((img, idx) => `
-                <div style="position:relative;">
+                <div style="position:relative;display:inline-block;">
+                    <span class="image-number-label">${idx + 1}</span>
                     <img src="${img}" class="image-thumbnail" alt="画像${idx + 1}" onclick="Admin.openImagePreview('${img}')">
-                    <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;" onclick="Admin.removeDetailImage(${stepIndex}, ${idx})">×</button>
+                    <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:0;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;line-height:1;" onclick="Admin.removeDetailImage(${stepIndex}, ${idx})"><span class="material-icons" style="font-size:16px;margin:0;">delete</span></button>
                 </div>
             `).join('');
         }
         
         // Enable save button due to content change
         this.updateSaveButtonState(true);
+        this.updateDetailSaveButtonState(stepIndex, true);
     },
 
     // Remove image from current step (modal)
@@ -610,9 +632,10 @@ const Admin = {
         }
 
         container.innerHTML = this.currentImages.map((img, index) => `
-            <div style="position:relative;">
+            <div style="position:relative;display:inline-block;">
+                <span class="image-number-label">${index + 1}</span>
                 <img src="${img}" class="image-thumbnail" alt="画像${index + 1}" onclick="Admin.openImagePreview('${img}')">
-                <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;" onclick="Admin.removeImage(${index})">×</button>
+                <button class="danger" style="position:absolute;top:-8px;right:-8px;padding:0;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;" onclick="Admin.removeImage(${index})"><span class="material-icons" style="font-size:16px;margin:0;">delete</span></button>
             </div>
         `).join('');
     },
@@ -645,8 +668,10 @@ const Admin = {
         if (instTextarea) {
             const val = instTextarea.value.trim();
             if (!val) {
-                alert('作業指示内容を入力してください。');
+                this.showInlineError(index, '作業指示内容は必須です');
                 return;
+            } else {
+                this.clearInlineError(index);
             }
             steps[index].instruction = val;
         }
@@ -721,16 +746,56 @@ const Admin = {
                 container.innerHTML = '';
                 return;
             }
-            container.innerHTML = images.map((img, idx) => `
-                <div style="position:relative;">
+        container.innerHTML = images.map((img, idx) => `
+                <div style="position:relative;display:inline-block;">
+                    <span class="image-number-label">${idx + 1}</span>
                     <img src="${img}" class="image-thumbnail" alt="画像${idx + 1}" onclick="Admin.openImagePreview('${img}')">
-                    <button class="detail-image-delete-btn danger" data-step-index="${stepIndex}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:4px 8px;font-size:9pt;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">×</button>
+                    <button class="detail-image-delete-btn danger" data-step-index="${stepIndex}" data-img-index="${idx}" style="position:absolute;top:-8px;right:-8px;padding:0;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><span class="material-icons" style="font-size:16px;margin:0;">delete</span></button>
                 </div>
             `).join('');
         }
         
         // Enable save button due to content change
         this.updateSaveButtonState(true);
+        this.updateDetailSaveButtonState(stepIndex, true);
+    },
+
+    // Show inline error for required instruction field
+    showInlineError: function(index, message) {
+        const detailEl = document.getElementById(`step-detail-${index}`);
+        if (!detailEl) return;
+        const instTextarea = detailEl.querySelector('.detail-instruction');
+        if (!instTextarea) return;
+        
+        // Add error styling to textarea
+        instTextarea.style.borderColor = 'var(--danger)';
+        instTextarea.style.boxShadow = '0 0 0 3px var(--danger-light)';
+        
+        // Add error message below textarea if not exists
+        const existingError = detailEl.querySelector('.instruction-error');
+        if (!existingError) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'instruction-error';
+            errorDiv.style.color = 'var(--danger)';
+            errorDiv.style.fontSize = '10pt';
+            errorDiv.style.fontWeight = '600';
+            errorDiv.style.marginTop = '4px';
+            errorDiv.textContent = message;
+            instTextarea.parentNode.appendChild(errorDiv);
+        }
+    },
+
+    // Clear inline error for required instruction field
+    clearInlineError: function(index) {
+        const detailEl = document.getElementById(`step-detail-${index}`);
+        if (!detailEl) return;
+        const instTextarea = detailEl.querySelector('.detail-instruction');
+        if (instTextarea) {
+            instTextarea.style.borderColor = 'var(--gray-300)';
+            instTextarea.style.boxShadow = 'none';
+        }
+        const existingError = detailEl.querySelector('.instruction-error');
+        if (existingError) existingError.remove();
     },
 
     // Escape HTML

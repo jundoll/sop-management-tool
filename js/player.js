@@ -12,13 +12,6 @@ const Player = {
         this.setupEventListeners();
     },
 
-    // Start preview mode (whole SOP preview)
-    startPreview: function() {
-        this.previewMode = true;
-        this.currentStepIndex = 0;
-        this.renderPreview();
-    },
-
     // Show start screen (no operator name input)
     showStartScreen: function(sop) {
         const main = document.getElementById('main-content');
@@ -39,7 +32,7 @@ const Player = {
         `;
     },
 
-    // Start execution (no operator name parameter)
+    // Start execution
     startExecution: function() {
         this.previewMode = false;
         this.currentStepIndex = 0;
@@ -77,62 +70,7 @@ const Player = {
         }
     },
 
-    // Render whole SOP preview
-    renderPreview: function() {
-        const main = document.getElementById('main-content');
-        const sop = window.app.state.currentSop;
-
-        const stepsHtml = sop.steps.map((step, index) => `
-            <div class="preview-step">
-                <div class="preview-step-header">
-                    <span class="step-number">ステップ ${index + 1}</span>
-                </div>
-                <div class="preview-step-body">
-                    <div class="instruction">${this.escapeHtml(step.instruction)}</div>
-                    ${step.comment ? `<div class="comment">${this.escapeHtml(step.comment)}</div>` : ''}
-                    ${step.images && step.images.length > 0 ? `
-                        <div class="reference-images">
-                            ${step.images.map((img, idx) => `
-                                <img src="${img}" class="reference-image" alt="参考画像${idx + 1}" onclick="Player.openImagePreview('${img}')">
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
-
-        main.innerHTML = `
-            <div class="preview-container">
-                <div class="preview-header">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <input type="text" id="preview-sop-title" value="${this.escapeHtml(sop.sop_title)}" placeholder="SOPタイトルを入力" style="font-size:16pt;font-weight:600;padding:12px 16px;border:1px solid var(--gray-300);border-radius:var(--radius);flex:1;margin-right:12px;">
-                        <button onclick="Player.savePreview()">保存</button>
-                    </div>
-                    <p class="preview-summary">合計 ${sop.steps.length} ステップ</p>
-                </div>
-                <div class="preview-steps">
-                    ${stepsHtml}
-                </div>
-                <div class="preview-footer">
-                    <button class="secondary" onclick="app.showAdminView()">戻る</button>
-                </div>
-            </div>
-        `;
-    },
-
-    // Save from preview mode
-    savePreview: function() {
-        const titleInput = document.getElementById('preview-sop-title');
-        if (titleInput) {
-            const title = titleInput.value.trim() || '新規SOP';
-            window.app.state.currentSop.sop_title = title;
-            window.app.state.currentSop.updated_at = new Date().toISOString();
-            Admin.saveSop();
-            this.renderPreview();
-        }
-    },
-
-    // Render all steps in one scrollable view (replaces renderStep)
+    // Render all steps in one scrollable view
     renderSteps: function() {
         const main = document.getElementById('main-content');
         const sop = window.app.state.currentSop;
@@ -160,68 +98,61 @@ const Player = {
                         <span class="step-number">ステップ ${index + 1}</span>
                         ${isCompleted ? '<span class="step-completed-badge">完了</span>' : ''}
                     </div>
-                    <div class="player-step-top">
-                        <div class="instruction" style="font-size:12pt;padding:12px;margin-bottom:8px;">
-                            ${this.escapeHtml(step.instruction)}
+                    <div class="player-step-row">
+                        <div class="player-step-left">
+                            <div class="player-step-top">
+                                <div class="instruction" style="font-size:12pt;padding:12px;margin-bottom:8px;">
+                                    ${this.escapeHtml(step.instruction)}
+                                </div>
+
+                                ${step.images && step.images.length > 0 ? `
+                                    <div style="margin-bottom:8px;">
+                                        <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参照画像:</label>
+                                        <img src="${step.images[0]}" class="reference-image" style="max-width:240px;max-height:180px;border-radius:var(--radius);border:1px solid var(--border-color);cursor:pointer;" onclick="Player.openMediaPreview('${step.images[0]}')">
+                                    </div>
+                                ` : ''}
+
+                                ${step.comment ? `
+                                    <div style="color:var(--gray-500);font-size:10pt;background:var(--gray-50);padding:8px;border-radius:var(--radius-sm);border-left:3px solid var(--primary);">
+                                        ${this.escapeHtml(step.comment)}
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
-
-                        ${step.images && step.images.length > 0 ? `
-                            <div class="reference-images" style="margin-bottom:8px;">
-                                <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参照画像:</label>
-                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                                    ${step.images.map((img, idx) => `
-                                        <img src="${img}" class="reference-image" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid #ddd;cursor:pointer;" alt="参考画像${idx + 1}" onclick="Player.openImagePreview('${img}')">
-                                    `).join('')}
+                        <div class="player-step-right">
+                            <div class="input-section" style="margin-bottom:0;">
+                                <div style="margin-bottom:8px;">
+                                    <label style="font-size:10pt;font-weight:600;color:var(--gray-700);display:block;margin-bottom:4px;">完了日付・時刻</label>
+                                    <span class="datetime-display" style="font-size:10pt;">${stepData.datetime || '（未記録）'}</span>
                                 </div>
-                            </div>
-                        ` : ''}
 
-                        ${step.comment ? `
-                            <div class="comment-section" style="margin-bottom:4px;">
-                                <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">補足コメント:</label>
-                                <div style="background:#f5f5f5;padding:8px;border-radius:4px;border-left:4px solid #0078d4;font-size:10pt;">
-                                    ${this.escapeHtml(step.comment)}
+                                    <div style="margin-bottom:8px;">
+                                     <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">判定</label>
+                                     <div style="display:flex;gap:4px;">
+                                         <button class="toggle-btn" data-step="${index}" data-value="ok" style="flex:1;padding:8px 12px;font-size:10pt;">OK</button>
+                                         <button class="toggle-btn" data-step="${index}" data-value="ng" style="flex:1;padding:8px 12px;font-size:10pt;">NG</button>
+                                         <button class="toggle-btn btn-skip" data-step="${index}" data-value="skip" style="flex:1;padding:8px 12px;font-size:10pt;">スキップ</button>
+                                     </div>
+                                 </div>
+
+                                <div class="skip-reason-section" style="display:none;" id="skip-reason-${index}">
+                                    <label style="font-size:10pt;">スキップ理由</label>
+                                    <textarea id="skip-reason-text-${index}" rows="2" style="width:100%;font-size:10pt;padding:6px;" placeholder="スキップ理由を入力"></textarea>
+                                    <div class="skip-error" style="display:none;"></div>
                                 </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="player-step-bottom">
-                        <div class="input-section" style="padding:12px;margin-bottom:0;">
-                            <div class="input-row" style="margin-bottom:8px;">
-                                <label style="min-width:80px;font-size:10pt;">完了日付・時刻:</label>
-                                <span id="datetime-display-${index}" style="font-size:10pt;">${stepData.datetime ? this.escapeHtml(stepData.datetime) : '（未記録）'}</span>
-                            </div>
 
-                            <div class="input-row" style="margin-bottom:8px;">
-                                <label style="min-width:80px;font-size:10pt;">判定:</label>
-                                <div class="toggle-group" id="judgment-group-${index}" data-step="${index}">
-                                    <button class="toggle-btn ${stepData.judgment === 'OK' ? 'selected' : ''}" data-value="OK" data-step="${index}">OK</button>
-                                    <button class="toggle-btn ${stepData.judgment === 'NG' ? 'selected' : ''}" data-value="NG" data-step="${index}">NG</button>
-                                    <button class="toggle-btn btn-skip ${stepData.skip ? 'selected' : ''}" data-value="スキップ" data-step="${index}">スキップ</button>
+                                <div style="margin-top:8px;">
+                                    <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">作業コメント</label>
+                                    <textarea class="execution-comment" data-index="${index}" rows="2" style="width:100%;font-size:10pt;padding:6px;" placeholder="作業コメントを入力">${stepData.comment || ''}</textarea>
                                 </div>
-                            </div>
 
-                            <div style="margin-bottom:8px;">
-                                <label style="font-size:10pt;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">作業コメント:</label>
-                                <textarea class="step-operator-comment" data-step="${index}" placeholder="作業記録を入力" rows="2" style="font-size:10pt;width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);">${stepData.comment || ''}</textarea>
-                            </div>
-
-                            <div class="skip-reason-section" id="skip-reason-section-${index}" style="margin-top:8px;padding:10px;">
-                                <label for="skip-reason-${index}" style="font-size:10pt;">スキップ理由</label>
-                                <textarea class="step-skip-reason" id="skip-reason-${index}" data-step="${index}" placeholder="スキップする場合は理由を入力してください" rows="2" style="font-size:10pt;width:100%;">${stepData.skip_reason || ''}</textarea>
-                            </div>
-
-                            <div class="player-evidence-area" style="margin-top:12px;">
-                                <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">エビデンス画像:</label>
-                                <div class="image-upload-area" style="min-height:80px;padding:10px;">
-                                    <div class="paste-hint" style="font-size:9pt;">Ctrl+V で画像を貼り付け</div>
-                                    <div class="captured-images" id="captured-images-${index}" data-step="${index}">
-                                        ${(stepData.images || []).map((img, idx) => `
-                                            <div style="position:relative;display:inline-block;">
-                                                <img src="${img}" class="execution-thumb" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onclick="Player.openImagePreview('${img}')">
-                                                <button class="image-delete-btn" onclick="Player.deleteImage(${index}, ${idx})" title="画像を削除">×</button>
-                                            </div>
-                                        `).join('')}
+                                <div style="margin-top:8px;">
+                                    <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">エビデンス画像</label>
+                                    <div class="player-evidence-area">
+                                        <div class="image-upload-area evidence-upload" data-step="${index}" style="min-height:auto;padding:8px;">
+                                            <div class="paste-hint" style="font-size:9pt;">Ctrl+V で貼り付け</div>
+                                            <div class="captured-images" id="evidence-images-${index}"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -232,7 +163,7 @@ const Player = {
         }).join('');
 
         main.innerHTML = `
-            <div class="player-container" style="max-width:1000px;">
+            <div class="player-container" style="max-width:1100px;">
                 <div class="player-header">
                     <h2>${this.escapeHtml(sop.sop_title)}</h2>
                     <div class="step-counter">${totalSteps} ステップ</div>
@@ -248,181 +179,127 @@ const Player = {
             </div>
         `;
 
-        this.setupPlayerEvents();
+        // Render evidence images and setup events after DOM update
+        setTimeout(() => {
+            sop.steps.forEach((step, index) => {
+                Player.renderEvidenceImages(index);
+            });
+            this.attachPlayerEvents();
+        }, 0);
     },
 
     // Setup player view event listeners
-    setupPlayerEvents: function() {
-        // Judgment toggle - record datetime on click
-        document.querySelectorAll('[id^="judgment-group-"]').forEach(group => {
-            group.addEventListener('click', (e) => {
-                const btn = e.target.closest('.toggle-btn');
-                if (!btn) return;
+    attachPlayerEvents: function() {
+        // Judgment buttons - single handler via data-value attribute
+        document.querySelectorAll('.player-step-card .toggle-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const stepIndex = parseInt(this.dataset.step);
+                const value = this.dataset.value;
 
-                const stepIndex = parseInt(btn.dataset.step);
-                const stepData = window.app.state.executionData[stepIndex];
-                if (!stepData) return;
-
-                const judgmentValue = btn.dataset.value;
-
-                // If skip is selected, validate skip reason
-                if (judgmentValue === 'スキップ') {
-                    const skipReasonInput = document.getElementById(`skip-reason-${stepIndex}`);
-                    const reason = skipReasonInput ? skipReasonInput.value.trim() : (stepData.skip_reason || '');
-                    
-                    if (!reason) {
-                        // Show error message
-                        const skipSection = document.getElementById(`skip-reason-section-${stepIndex}`);
-                        if (skipSection) {
-                            const existingError = skipSection.querySelector('.skip-error');
-                            if (!existingError) {
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'skip-error';
-                                errorDiv.textContent = 'スキップ理由を入力してください';
-                                skipSection.appendChild(errorDiv);
-                            }
-                        }
+                if (value === 'skip') {
+                    // Show skip reason section if hidden; if already shown, proceed with skip
+                    const reasonSection = document.getElementById(`skip-reason-${stepIndex}`);
+                    if (reasonSection && reasonSection.style.display !== 'block') {
+                        reasonSection.style.display = 'block';
+                        const reasonInput = document.getElementById(`skip-reason-text-${stepIndex}`);
+                        if (reasonInput) reasonInput.focus();
                         return;
                     }
-                    
-                    // Clear error if exists
-                    const existingError = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
-                    if (existingError) existingError.remove();
-                    
-                    stepData.skip = true;
-                    stepData.skip_reason = reason;
+                    // If already shown, proceed with skip (updateStep validates reason)
+                    Player.updateStep(stepIndex, 'skip');
                 } else {
-                    // OK or NG
-                    stepData.judgment = judgmentValue;
-                    stepData.skip = false;
-                    
-                    // Clear skip error if exists
-                    const existingError = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
-                    if (existingError) existingError.remove();
+                    // OK / NG
+                    Player.updateStep(stepIndex, value);
                 }
-
-                // Toggle selection within this group
-                group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-
-                // Auto record datetime
-                const datetime = Utils.formatDateTime();
-                stepData.datetime = datetime;
-                const datetimeDisplay = document.getElementById(`datetime-display-${stepIndex}`);
-                if (datetimeDisplay) {
-                    datetimeDisplay.textContent = datetime;
-                }
-
-                // Mark step as completed
-                const stepCard = document.querySelector(`.player-step-card[data-step-index="${stepIndex}"]`);
-                if (stepCard) {
-                    const header = stepCard.querySelector('.player-step-header');
-                    if (!header.querySelector('.step-completed-badge')) {
-                        const badge = document.createElement('span');
-                        badge.className = 'step-completed-badge';
-                        badge.textContent = '完了';
-                        header.appendChild(badge);
-                    }
-                }
-
-                // Save execution state
-                this.saveExecutionState();
-
-                // Check if all steps completed
-                this.checkAllCompleted();
             });
         });
 
-        // Comment input
-        document.querySelectorAll('.step-operator-comment').forEach(textarea => {
-            textarea.addEventListener('input', (e) => {
-                const stepIndex = parseInt(e.target.dataset.step);
-                if (!window.app.state.executionData[stepIndex]) {
-                    window.app.state.executionData[stepIndex] = {};
-                }
-                window.app.state.executionData[stepIndex].comment = e.target.value;
+        // Comment inputs
+        document.querySelectorAll('.execution-comment').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                Player.getExecutionData(index).comment = e.target.value.trim();
                 this.saveExecutionState();
             });
         });
 
-        // Skip reason input
-        document.querySelectorAll('.step-skip-reason').forEach(textarea => {
-            textarea.addEventListener('input', (e) => {
-                const stepIndex = parseInt(e.target.dataset.step);
-                if (!window.app.state.executionData[stepIndex]) {
-                    window.app.state.executionData[stepIndex] = {};
-                }
-                window.app.state.executionData[stepIndex].skip_reason = e.target.value;
-                this.saveExecutionState();
-                // Auto-clear error message when user starts typing
-                const errorMsg = document.querySelector(`#skip-reason-section-${stepIndex} .skip-error`);
-                if (errorMsg) errorMsg.remove();
-            });
-        });
-
-        // Skip button
-        document.querySelectorAll('.step-skip-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const stepIndex = parseInt(e.target.dataset.step);
-                this.skipStep(stepIndex);
-            });
-        });
-
-        // Image paste for each captured-images area
-        document.querySelectorAll('.captured-images').forEach(area => {
+        // Paste handlers for evidence upload areas
+        document.querySelectorAll('.evidence-upload').forEach(area => {
             const stepIndex = parseInt(area.dataset.step);
             Utils.handlePaste(area, 1280, 0.8, (base64) => {
-                this.addExecutionImage(stepIndex, base64);
+                const data = Player.getExecutionData(stepIndex);
+                if (!data.images) data.images = [];
+                data.images.push(base64);
+                this.saveExecutionState();
+                Player.renderEvidenceImages(stepIndex);
             });
         });
     },
 
-    // Check if all steps are completed
-    checkAllCompleted: function() {
-        const allCompleted = window.app.state.executionData.every(d => d.judgment !== '未判定' || d.skip);
-        if (allCompleted) {
-            // Small delay to show the last step completion
-            setTimeout(() => {
-                this.renderComplete();
-            }, 500);
+    // Get execution data for a step
+    getExecutionData: function(index) {
+        if (!window.app.state.executionData[index]) {
+            window.app.state.executionData[index] = {
+                datetime: '',
+                judgment: '未判定',
+                skip: false,
+                skip_reason: '',
+                images: [],
+                comment: ''
+            };
         }
+        return window.app.state.executionData[index];
     },
 
-
-    // Add execution image
-    addExecutionImage: function(stepIndex, base64) {
-        if (!window.app.state.executionData[stepIndex]) {
-            window.app.state.executionData[stepIndex] = {};
+    // Update step judgment
+    updateStep: function(index, action) {
+        const data = this.getExecutionData(index);
+        
+        if (action === 'skip') {
+            const reasonSection = document.getElementById(`skip-reason-${index}`);
+            const reasonInput = document.getElementById(`skip-reason-text-${index}`);
+            const errorEl = reasonSection.querySelector('.skip-error');
+            
+            if (!reasonInput.value.trim()) {
+                errorEl.textContent = 'スキップ理由を入力してください';
+                errorEl.style.display = 'block';
+                return;
+            }
+            errorEl.style.display = 'none';
+            data.skip = true;
+            data.skip_reason = reasonInput.value.trim();
+        } else {
+            data.skip = false;
+            data.skip_reason = '';
+            data.judgment = action === 'ok' ? 'OK' : 'NG';
         }
-        if (!window.app.state.executionData[stepIndex].images) {
-            window.app.state.executionData[stepIndex].images = [];
-        }
-        window.app.state.executionData[stepIndex].images.push(base64);
+        
+        data.datetime = new Date().toLocaleString('ja-JP');
         this.saveExecutionState();
-        this.renderExecutedImages(stepIndex);
+        this.renderSteps();
     },
 
-    // Render executed images for a specific step
-    renderExecutedImages: function(stepIndex) {
-        const container = document.getElementById(`captured-images-${stepIndex}`);
+    // Render evidence images for a step
+    renderEvidenceImages: function(stepIndex) {
+        const container = document.getElementById(`evidence-images-${stepIndex}`);
         if (!container) return;
 
-        const images = window.app.state.executionData[stepIndex].images || [];
+        const images = this.getExecutionData(stepIndex).images || [];
         if (images.length === 0) {
             container.innerHTML = '';
             return;
         }
 
         container.innerHTML = images.map((img, idx) => `
-            <div style="position:relative;display:inline-block;">
-                <img src="${img}" class="execution-thumb" style="width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onclick="Player.openImagePreview('${img}')">
-                <button class="image-delete-btn" onclick="Player.deleteImage(${stepIndex}, ${idx})" title="画像を削除">×</button>
+            <div style="position:relative;display:inline-block;margin:4px;">
+                <img src="${img}" class="execution-thumb" style="width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid var(--border-color);cursor:pointer;" onclick="Player.openMediaPreview('${img}')">
+                <button class="image-delete-btn" onclick="Player.deleteImage(${stepIndex}, ${idx})" title="画像を削除" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;display:flex;align-items:center;justify-content:center;"><span class="material-icons" style="font-size:16px;">delete</span></button>
             </div>
         `).join('');
     },
 
-    // Open image preview modal
-    openImagePreview: function(src) {
+    // Open image preview (larger view)
+    openMediaPreview: function(src) {
         const existing = document.querySelector('.image-preview-overlay');
         if (existing) existing.remove();
 
@@ -435,30 +312,138 @@ const Player = {
 
     // Delete execution image
     deleteImage: function(stepIndex, imgIndex) {
-        const stepData = window.app.state.executionData[stepIndex];
-        if (!stepData || !stepData.images) return;
-
-        stepData.images.splice(imgIndex, 1);
+        const data = this.getExecutionData(stepIndex);
+        if (!data.images) return;
+        data.images.splice(imgIndex, 1);
         this.saveExecutionState();
-        this.renderExecutedImages(stepIndex);
+        this.renderEvidenceImages(stepIndex);
     },
 
-    // Render completion screen
+    _recordSavedForCurrentSession: null,
+
+    // Save execution record to localStorage for history
+    // Guard against duplicate records when renderComplete is called multiple times
+    saveExecutionRecord: function(sop, execData) {
+        // Prevent duplicate record for the same SOP in the current execution session
+        if (this._recordSavedForCurrentSession === sop.sop_id) {
+            return;
+        }
+        this._recordSavedForCurrentSession = sop.sop_id;
+
+        try {
+            const records = JSON.parse(localStorage.getItem('execution_records') || '[]');
+            const record = {
+                id: Utils.generateId(),
+                sop_id: sop.sop_id,
+                sop_title: sop.sop_title,
+                executed_at: new Date().toISOString(),
+                steps: Utils.deepClone(sop.steps),
+                data: execData
+            };
+            records.push(record);
+            // Keep last 50 records
+            if (records.length > 50) records.splice(0, records.length - 50);
+            localStorage.setItem('execution_records', JSON.stringify(records));
+        } catch (e) {
+            console.warn('Failed to save execution record:', e);
+        }
+    },
+
+    // Render completion screen with detailed execution records (上下2段構成カード)
     renderComplete: function() {
         const main = document.getElementById('main-content');
         const sop = window.app.state.currentSop;
         const executionData = ExcelExport.generateExecutionData(sop);
+        const execData = window.app.state.executionData || [];
+
+        // Save execution record to localStorage for history
+        this.saveExecutionRecord(sop, execData);
+
+        // Build detailed 2-row card layout for each step
+        const stepsHtml = sop.steps.map((step, index) => {
+            const data = execData[index] || {};
+            const judgment = data.skip ? 'スキップ' : (data.judgment || '未判定');
+            const refImage = step.images && step.images.length > 0 ? step.images[0] : null;
+            const evidenceImages = data.images || [];
+
+            return `
+                <div class="player-step-card" data-step-index="${index}">
+                    <div class="player-step-header">
+                        <span class="step-number">ステップ ${index + 1}</span>
+                        <span class="step-completed-badge">${judgment}</span>
+                    </div>
+                    <div class="player-step-row">
+                        <div class="player-step-left">
+                            <div class="player-step-top">
+                                <div class="instruction" style="font-size:12pt;padding:12px;margin-bottom:8px;">
+                                    ${this.escapeHtml(step.instruction || '（未入力）')}
+                                </div>
+                                ${refImage ? `
+                                    <div style="margin-bottom:8px;">
+                                        <label style="font-size:10pt;font-weight:600;color:var(--gray-500);display:block;margin-bottom:4px;">参照画像:</label>
+                                        <img src="${refImage}" class="reference-image" style="max-width:240px;max-height:180px;border-radius:var(--radius);border:1px solid var(--border-color);cursor:pointer;" onclick="Player.openMediaPreview('${refImage}')">
+                                    </div>
+                                ` : ''}
+                                ${step.comment ? `
+                                    <div style="color:var(--gray-500);font-size:10pt;background:var(--gray-50);padding:8px;border-radius:var(--radius-sm);border-left:3px solid var(--primary);">
+                                        ${this.escapeHtml(step.comment)}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="player-step-right">
+                            <div class="input-section" style="margin-bottom:0;">
+                                <div style="margin-bottom:8px;">
+                                    <label style="font-size:10pt;font-weight:600;color:var(--gray-700);display:block;margin-bottom:4px;">完了日付・時刻</label>
+                                    <span class="datetime-display" style="font-size:10pt;">${data.datetime || '（未記録）'}</span>
+                                </div>
+                                <div style="margin-bottom:8px;">
+                                    <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">判定</label>
+                                    <span style="display:inline-block;padding:8px 12px;font-size:10pt;font-weight:600;color:${judgment === 'OK' ? 'var(--success)' : judgment === 'NG' ? 'var(--danger)' : 'var(--skip)'};border:1px solid var(--gray-300);border-radius:var(--radius);background:var(--bg-primary);">${judgment}</span>
+                                </div>
+                                ${data.skip && data.skip_reason ? `
+                                    <div style="margin-bottom:8px;">
+                                        <label style="font-size:10pt;font-weight:600;color:var(--gray-700);display:block;margin-bottom:4px;">スキップ理由</label>
+                                        <span style="font-size:10pt;">${this.escapeHtml(data.skip_reason)}</span>
+                                    </div>
+                                ` : ''}
+                                <div style="margin-top:8px;">
+                                    <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">作業コメント</label>
+                                    <textarea readonly style="width:100%;font-size:10pt;padding:6px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);resize:vertical;background:var(--bg-primary);color:var(--text-primary);">${this.escapeHtml(data.comment || '')}</textarea>
+                                </div>
+                                ${evidenceImages.length > 0 ? `
+                                    <div style="margin-top:8px;">
+                                        <label style="display:block;font-size:10pt;font-weight:600;color:var(--gray-700);margin-bottom:4px;">エビデンス画像</label>
+                                        <div class="captured-images" style="min-height:auto;padding:12px;">
+                                            ${evidenceImages.map((img, idx) => `
+                                                <div style="position:relative;display:inline-block;margin:4px;">
+                                                    <img src="${img}" class="execution-thumb" style="width:100px;height:75px;object-fit:cover;border-radius:6px;border:1px solid var(--border-color);cursor:pointer;" onclick="Player.openMediaPreview('${img}')">
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
         main.innerHTML = `
-            <div class="player-container">
+            <div class="player-container" style="max-width:1100px;">
                 <div class="player-header">
                     <h2>${this.escapeHtml(sop.sop_title)}</h2>
+                    <div class="step-counter">${sop.steps.length} ステップ</div>
                 </div>
                 
-                <div class="step-content" style="text-align: center; padding: 40px 0;">
-                    <h3 style="color: #107c10; margin-bottom: 16px;">完了</h3>
-                    <p style="margin-bottom: 24px;">全てのステップが完了しました。</p>
-                    <p style="color: #666; margin-bottom: 32px;">実績データをExcel出力できます。</p>
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h3 style="color: var(--success); margin-bottom: 8px;">全てのステップが完了しました</h3>
+                    <p style="color: var(--gray-500);">実施記録の詳細とExcel出力が可能です</p>
+                </div>
+
+                <div class="player-all-steps">
+                    ${stepsHtml}
                 </div>
 
                 <div class="player-footer" style="justify-content: center;">
@@ -468,7 +453,7 @@ const Player = {
             </div>
         `;
 
-        // Clear execution state
+        // Clear current execution state
         localStorage.removeItem('execution_data');
 
         // Store execution data for export
